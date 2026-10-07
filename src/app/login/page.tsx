@@ -12,7 +12,7 @@ import { useAuth, useFirebase } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { upsertProfile } from '@/lib/repositories';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { normalizePakistanPhone } from '@/lib/phone-number';
 
 // Extend window to safely store Firebase instances
 declare global {
@@ -28,10 +28,6 @@ const DEMO_ACCOUNTS = [
   { label: 'Demo Account 2 (Admin)', phone: '03244149474', otp: '123456' },
 ];
 
-// ─── DEMO OTP BYPASS: stored OTPs per phone ──────────────────────────────────
-// Any new user who registers gets OTP: 123456 stored in Firestore
-const DEMO_OTP = '123456';
-
 export default function LoginPage() {
   const [isClient, setIsClient] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -40,11 +36,9 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [showOtpForm, setShowOtpForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useBypass, setUseBypass] = useState(false); // true = use Firestore demo OTP
-  const [pendingPhone, setPendingPhone] = useState(''); // normalized phone for bypass
 
   const router = useRouter();
-  const { auth, db } = useFirebase();
+  const { auth } = useFirebase();
   const { user, isUserLoading } = useAuth();
   const { toast } = useToast();
 
@@ -96,8 +90,9 @@ export default function LoginPage() {
   }, [isClient, isUserLoading, showOtpForm, setupRecaptcha]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-    setPhone(value);
+    const value = e.target.value.replace(/[^\d+]/g, '').slice(0, 15);
+    const normalized = normalizePakistanPhone(value);
+    setPhone(normalized ? `0${normalized.slice(3)}` : value);
   };
 
   // Auto-fill phone from demo account click
@@ -111,48 +106,12 @@ export default function LoginPage() {
     });
   };
 
-  // ─── Store OTP in Firestore for bypass login ──────────────────────────────
-  const storeBypassOtp = async (normalizedPhone: string) => {
-    try {
-      const otpRef = doc(db, 'otp_bypass', normalizedPhone);
-      await setDoc(otpRef, {
-        otp: DEMO_OTP,
-        phone: normalizedPhone,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min
-      });
-      return true;
-    } catch (e) {
-      console.error('Failed to store bypass OTP:', e);
-      return false;
-    }
-  };
-
-  // ─── Verify OTP from Firestore for bypass login ───────────────────────────
-  const verifyBypassOtp = async (normalizedPhone: string, enteredCode: string): Promise<boolean> => {
-    try {
-      const otpRef = doc(db, 'otp_bypass', normalizedPhone);
-      const snap = await getDoc(otpRef);
-      if (!snap.exists()) return false;
-      const data = snap.data();
-      // Check OTP matches and not expired
-      if (data.otp !== enteredCode) return false;
-      if (new Date(data.expiresAt) < new Date()) return false;
-      return true;
-    } catch (e) {
-      console.error('Failed to verify bypass OTP:', e);
-      return false;
-    }
-  };
-
-  // ─── Sign in with custom Firestore-based auth (bypass) ───────────────────
-  // Since we can't create users without real Firebase Auth, we use signInWithPhoneNumber
-  // but with Firebase test phone numbers, and fall back to demo OTP bypass for new users.
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (phone.length < 10) {
+    const fullPhone = normalizePakistanPhone(phone);
+    if (!fullPhone) {
       setError("Please enter a valid Pakistani phone number (e.g. 03217094123).");
       return;
     }
@@ -165,7 +124,6 @@ export default function LoginPage() {
       return;
     }
 
-    const fullPhone = `+92${phone.replace(/^0/, '')}`;
 
     // Try real Firebase Phone Auth first
     if (!window.recaptchaVerifier) {
@@ -175,37 +133,21 @@ export default function LoginPage() {
     try {
       const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier!);
       window.confirmationResult = confirmationResult;
-      setUseBypass(false);
       setShowOtpForm(true);
-      toast({ title: "OTP Sent", description: `An OTP has been sent to ${fullPhone}` });
+      const demo = DEMO_ACCOUNTS.find(account => normalizePakistanPhone(account.phone) === fullPhone);
+      toast({ title: demo ? "Demo login ready" : "OTP Sent", description: demo ? "Use the demo code shown below. No SMS is sent for demo accounts." : `An OTP has been sent to ${fullPhone}` });
     } catch (err: any) {
-      console.warn("Real OTP failed, using bypass mode:", err.code, err.message);
-
-      // ── BYPASS MODE: Store demo OTP in Firestore ─────────────────────────
-      // This handles auth/billing-not-enabled, auth/too-many-requests, etc.
-      if (
-        err.code === 'auth/billing-not-enabled' ||
-        err.code === 'auth/too-many-requests' ||
-        err.code === 'auth/quota-exceeded' ||
-        err.code === 'auth/operation-not-allowed' ||
-        err.code === 'auth/captcha-check-failed' ||
-        err.code === 'auth/missing-phone-number'
-      ) {
-        const ok = await storeBypassOtp(fullPhone);
-        if (ok) {
-          setPendingPhone(fullPhone);
-          setUseBypass(true);
-          setShowOtpForm(true);
-          toast({
-            title: "✅ Demo OTP Ready",
-            description: `Enter the demo OTP: ${DEMO_OTP} to sign in.`,
-            duration: 8000,
-          });
-        } else {
-          setError('Could not prepare login. Please check your connection.');
-        }
+      console.warn('Phone sign-in failed:', err.code);
+      if (err.code === 'auth/billing-not-enabled') {
+        setError('Real SMS sign-in requires Firebase billing. For the demo, select Demo Account 1 or 2 below and use the displayed demo code.');
+      } else if (err.code === 'auth/too-many-requests' || err.code === 'auth/quota-exceeded') {
+        setError('Too many sign-in attempts. Please wait before trying again.');
       } else {
-        setError(err.message || 'Failed to send OTP. Please check the phone number and try again.');
+        setError(err.message || 'Could not send the code. Please check the phone number and try again.');
+      }
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = undefined;
       }
     } finally {
       setIsSending(false);
@@ -218,58 +160,6 @@ export default function LoginPage() {
     setIsVerifying(true);
 
     try {
-      if (useBypass) {
-        // ── Bypass OTP verification ─────────────────────────────────────────
-        const valid = await verifyBypassOtp(pendingPhone, code);
-        if (!valid) {
-          setError(`Invalid OTP. Please enter: ${DEMO_OTP}`);
-          setIsVerifying(false);
-          return;
-        }
-
-        // Use signInWithPhoneNumber with a known test number that Firebase allows
-        // OR: sign the user in via a custom token approach
-        // Since we can't create users without auth, we attempt real sign-in again
-        // but first try the demo accounts if phone matches
-        const demoAccount = DEMO_ACCOUNTS.find(d => {
-          const normalized = `+92${d.phone.replace(/^0/, '')}`;
-          return normalized === pendingPhone;
-        });
-
-        if (demoAccount && window.confirmationResult) {
-          // This path should rarely hit since bypass is triggered when confirmationResult fails
-          try {
-            const cred = await window.confirmationResult.confirm(code);
-            const loggedInUser = cred.user;
-            await upsertProfile({ uid: loggedInUser.uid, phone: loggedInUser.phoneNumber! });
-            toast({ title: "Login Successful!", description: "Welcome to AgriGuard.", className: "bg-green-100 text-green-800" });
-            router.push('/dashboard');
-            return;
-          } catch {
-            // fall through
-          }
-        }
-
-        // For non-demo phones in bypass mode, we need to create a session manually.
-        // Since Firebase doesn't allow passwordless creation without billing,
-        // we store the user profile in Firestore and use a session token approach.
-        // Store the session in localStorage so the app can detect it
-        const sessionData = {
-          uid: `demo_${pendingPhone.replace(/\+/g, '')}`,
-          phone: pendingPhone,
-          isDemoSession: true,
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem('agriguard_demo_session', JSON.stringify(sessionData));
-
-        // Upsert profile using demo UID
-        await upsertProfile({ uid: sessionData.uid, phone: pendingPhone });
-
-        toast({ title: "Login Successful!", description: "Welcome to AgriGuard.", className: "bg-green-100 text-green-800" });
-
-        // Force page reload to let the app pick up the demo session
-        window.location.href = '/dashboard';
-      } else {
         // ── Real Firebase Phone Auth verification ───────────────────────────
         if (!window.confirmationResult) {
           setError("Verification session expired. Please request a new OTP.");
@@ -281,7 +171,6 @@ export default function LoginPage() {
         await upsertProfile({ uid: loggedInUser.uid, phone: loggedInUser.phoneNumber! });
         toast({ title: "Login Successful!", description: "Welcome to AgriGuard.", className: "bg-green-100 text-green-800" });
         router.push('/dashboard');
-      }
     } catch (err: any) {
       console.error("OTP Verify Error:", err);
       setError(err.message || 'Invalid code. Please try again.');
@@ -313,7 +202,7 @@ export default function LoginPage() {
             </CardTitle>
             <CardDescription className="text-gray-500">
               {showOtpForm
-                ? 'Enter the OTP sent to your phone'
+                ? 'Enter your verification code'
                 : 'Sign in or sign up with your phone number'}
             </CardDescription>
           </CardHeader>
@@ -356,7 +245,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all"
-                  disabled={isSending || phone.length < 10}
+                  disabled={isSending || !normalizePakistanPhone(phone)}
                 >
                   {isSending ? (
                     <LoadingSpinner message="Sending OTP..." />
@@ -391,14 +280,7 @@ export default function LoginPage() {
                     autoFocus
                     className="text-center text-2xl tracking-widest font-bold focus:ring-emerald-500 focus:border-emerald-500"
                   />
-                  {useBypass && (
-                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
-                      <p className="text-xs text-emerald-700 font-medium">
-                        🔑 Demo OTP code: <span className="font-bold text-emerald-800 text-sm">123456</span>
-                      </p>
-                    </div>
-                  )}
-                  {!useBypass && (
+                  {DEMO_ACCOUNTS.some(account => normalizePakistanPhone(account.phone) === normalizePakistanPhone(phone)) && (
                     <p className="text-xs text-muted-foreground text-center">
                       💡 Demo OTP code is: <span className="font-bold text-primary">123456</span>
                     </p>
@@ -425,7 +307,7 @@ export default function LoginPage() {
                   type="button"
                   variant="ghost"
                   className="w-full text-gray-500 hover:text-emerald-700"
-                  onClick={() => { setShowOtpForm(false); setCode(''); setError(null); setUseBypass(false); }}
+                  onClick={() => { setShowOtpForm(false); setCode(''); setError(null); }}
                 >
                   ← Use a different number
                 </Button>

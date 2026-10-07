@@ -69,3 +69,13 @@ test('supplier search requests way centers and excludes missing coordinates', as
   assert.equal(suppliers.length, 3);
   assert.ok(suppliers.every(s => Number.isFinite(s.location.coordinates.lat) && Number.isFinite(s.distance)));
 });
+
+import { normalizePakistanPhone } from '../src/lib/phone-number';
+test('demo phone formats resolve to the exact configured Firebase test number', () => {
+  for (const value of ['03001234567', '3001234567', '+923001234567', '923001234567', '00923001234567', '+92 300 123 4567']) {
+    assert.equal(normalizePakistanPhone(value), '+923001234567');
+  }
+  assert.equal(normalizePakistanPhone('03244149474'), '+923244149474');
+  assert.equal(normalizePakistanPhone('92300123456'), null);
+  assert.equal(normalizePakistanPhone('01234567890'), null);
+});
