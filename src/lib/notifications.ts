@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage, MessagePayload, Messaging } from 'firebase/messaging';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, collection, query, getDocs, orderBy, limit, onSnapshot, writeBatch } from 'firebase/firestore';
 import { getDb, getApp } from './firestore';
 
 // Get Firebase instances
@@ -38,28 +38,10 @@ function getMessagingInstance(): Messaging | null {
   return messaging;
 }
 
-// Notification types
-export enum NotificationType {
-  WEATHER_ALERT = 'weather_alert',
-  DISEASE_WARNING = 'disease_warning',
-  TREATMENT_REMINDER = 'treatment_reminder',
-  MARKET_UPDATE = 'market_update',
-  DIAGNOSIS_COMPLETE = 'diagnosis_complete',
-  SYSTEM_UPDATE = 'system_update'
-}
-
-export interface NotificationData {
-  id: string;
-  userId: string;
-  type: NotificationType;
-  title: string;
-  body: string;
-  data?: Record<string, string>;
-  read: boolean;
-  createdAt: Date;
-  scheduledFor?: Date;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-}
+import { NotificationType, type NotificationData, mergeReportNotifications } from './notification-data';
+import { activityDate } from './activity-data';
+import type { DiagnosisReport } from './models';
+export { NotificationType, type NotificationData } from './notification-data';
 
 // VAPID key for push notifications
 const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_KEY || 'your-vapid-key';
@@ -82,7 +64,6 @@ export async function initializeNotifications(): Promise<string | null> {
         vapidKey: VAPID_KEY
       });
       
-      console.log('FCM Token:', token);
       return token;
     } else {
       console.log('Notification permission denied');
@@ -97,7 +78,7 @@ export async function initializeNotifications(): Promise<string | null> {
 // Save FCM token to user profile
 export async function saveFCMToken(userId: string, token: string): Promise<void> {
   try {
-    await setDoc(doc(db, 'users', userId), {
+    await setDoc(doc(db, 'users', userId, 'settings', 'messaging'), {
       fcmToken: token,
       lastTokenUpdate: new Date()
     }, { merge: true });
@@ -114,11 +95,12 @@ export async function sendNotification(
   body: string,
   data?: Record<string, string>,
   priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
-  scheduledFor?: Date
+  scheduledFor?: Date,
+  notificationId?: string
 ): Promise<void> {
   try {
     const notification: any = {
-      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: notificationId || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
       type,
       title,
@@ -131,7 +113,7 @@ export async function sendNotification(
     if (scheduledFor) notification.scheduledFor = scheduledFor;
     
     // Save to Firestore
-    await setDoc(doc(db, 'notifications', notification.id), notification);
+    await setDoc(doc(db, 'users', userId, 'notifications', notification.id), notification);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('notificationCreated'));
     }
@@ -155,7 +137,7 @@ async function sendPushNotification(
   try {
     // In production, this would be done via Cloud Functions
     // For now, we'll just log it
-    console.log('Sending push notification:', { userId, title, body, data });
+    // In-app delivery uses Firestore listeners. Background push requires a server FCM sender.
     
     // You would typically call a Cloud Function here:
     // await fetch('/api/send-notification', {
@@ -169,70 +151,52 @@ async function sendPushNotification(
   }
 }
 
-// Get user notifications
-export async function getUserNotifications(
+function notificationQuery(userId: string, limitCount: number) {
+  if (!userId) throw new Error('Sign in to load notifications.');
+  return query(collection(db, 'users', userId, 'notifications'), orderBy('createdAt', 'desc'), limit(limitCount));
+}
+
+function notificationFromDocument(id: string, data: Record<string, any>): NotificationData {
+  return { ...data, id, createdAt: activityDate(data.createdAt), ...(data.scheduledFor ? { scheduledFor: activityDate(data.scheduledFor) } : {}) } as NotificationData;
+}
+
+export async function getUserNotifications(userId: string, limitCount = 50): Promise<NotificationData[]> {
+  const snapshot = await getDocs(notificationQuery(userId, limitCount));
+  return snapshot.docs.map(doc => notificationFromDocument(doc.id, doc.data()));
+}
+
+export function subscribeUserNotifications(
   userId: string,
-  limitCount: number = 50
-): Promise<NotificationData[]> {
-  try {
-    const notificationsRef = collection(db, 'notifications');
-    let snapshot;
-    try {
-      const q = query(
-        notificationsRef,
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
-      );
-      snapshot = await getDocs(q);
-    } catch (queryError) {
-      // Keep the panel usable when the composite Firestore index is not deployed.
-      console.warn('Notification index unavailable, using an unordered query:', queryError);
-      const fallbackQuery = query(notificationsRef, where('userId', '==', userId));
-      snapshot = await getDocs(fallbackQuery);
-    }
-
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt),
-      scheduledFor: doc.data().scheduledFor?.toDate?.() || doc.data().scheduledFor
-    }))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limitCount) as NotificationData[];
-    
-  } catch (error) {
-    console.error('Error getting notifications:', error);
-    return [];
-  }
+  onUpdate: (notifications: NotificationData[]) => void,
+  onError: (error: Error) => void,
+  limitCount = 50,
+): () => void {
+  let stored: NotificationData[] = [];
+  let reports: DiagnosisReport[] = [];
+  const emit = () => onUpdate(mergeReportNotifications(userId, stored, reports, limitCount));
+  const stopNotifications = onSnapshot(notificationQuery(userId, limitCount), snapshot => {
+    stored = snapshot.docs.map(doc => notificationFromDocument(doc.id, doc.data()));
+    emit();
+  }, onError);
+  const stopReports = onSnapshot(query(collection(db, 'users', userId, 'reports'), orderBy('createdAt', 'desc'), limit(limitCount)), snapshot => {
+    reports = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as DiagnosisReport);
+    emit();
+  }, onError);
+  return () => { stopNotifications(); stopReports(); };
 }
 
-// Mark notification as read
-export async function markNotificationAsRead(notificationId: string): Promise<void> {
-  try {
-    await setDoc(doc(db, 'notifications', notificationId), {
-      read: true
-    }, { merge: true });
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
-  }
+export async function markNotificationAsRead(userId: string, notification: NotificationData): Promise<void> {
+  // Persist the complete recovered alert too, so its read state survives reloads/devices.
+  await setDoc(doc(db, 'users', userId, 'notifications', notification.id), { ...notification, userId, read: true }, { merge: true });
 }
 
-// Mark all notifications as read
-export async function markAllNotificationsAsRead(userId: string): Promise<void> {
-  try {
-    const notifications = await getUserNotifications(userId);
-    const unreadNotifications = notifications.filter(n => !n.read);
-    
-    const batch = unreadNotifications.map(notification =>
-      setDoc(doc(db, 'notifications', notification.id), {
-        read: true
-      }, { merge: true })
-    );
-    
-    await Promise.all(batch);
-  } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+export async function markAllNotificationsAsRead(userId: string, notifications?: NotificationData[]): Promise<void> {
+  const items = notifications || await getUserNotifications(userId);
+  const batch = writeBatch(db);
+  for (const notification of items.filter(item => !item.read)) {
+    batch.set(doc(db, 'users', userId, 'notifications', notification.id), { ...notification, userId, read: true }, { merge: true });
   }
+  await batch.commit();
 }
 
 // Set up message listener
@@ -329,7 +293,9 @@ export async function sendDiagnosisComplete(
     title,
     body,
     { reportId, crop, disease, severity, confidence: String(confidence) },
-    priority
+    priority,
+    undefined,
+    `diagnosis_${reportId}`
   );
 }
 

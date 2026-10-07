@@ -2,7 +2,7 @@
 'use client';
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
+import { getAuth, onIdTokenChanged, type Auth, type User } from 'firebase/auth';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/agrisahayak/loading-spinner';
@@ -23,6 +23,7 @@ interface AuthContextType {
   auth: Auth;
   /** true if current user has admin access */
   isAdmin: boolean;
+  hasGlobalAdminAccess: boolean;
   /** phone number of the current user (Firebase or demo session) */
   userPhone: string | null;
 }
@@ -78,61 +79,35 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [hasGlobalAdminAccess, setHasGlobalAdminAccess] = useState(false);
 
   useEffect(() => {
     if (firebase) {
-      const unsubscribe = onAuthStateChanged(firebase.auth, (firebaseUser) => {
+      const unsubscribe = onIdTokenChanged(firebase.auth, async (firebaseUser) => {
+        setHasGlobalAdminAccess(false);
+        setUser(firebaseUser);
+        setUserPhone(firebaseUser?.phoneNumber || null);
         if (firebaseUser) {
-          setUser(firebaseUser);
-          setUserPhone(firebaseUser.phoneNumber);
-          setIsUserLoading(false);
-        } else {
-          // Check for demo session (bypass mode for billing-not-enabled)
           try {
-            const demoSession = localStorage.getItem('agriguard_demo_session');
-            if (demoSession) {
-              const session = JSON.parse(demoSession);
-              // Create a minimal user-like object for demo sessions
-              const demoUser = {
-                uid: session.uid,
-                phoneNumber: session.phone,
-                displayName: null,
-                email: null,
-                photoURL: null,
-                isAnonymous: false,
-                emailVerified: false,
-                providerData: [],
-                metadata: {},
-                tenantId: null,
-                refreshToken: '',
-                getIdToken: async () => '',
-                getIdTokenResult: async () => ({ token: '', claims: {}, issuedAtTime: '', expirationTime: '', authTime: '', signInProvider: null, signInSecondFactor: null }),
-                reload: async () => {},
-                toJSON: () => ({}),
-                delete: async () => {},
-              } as unknown as User;
-              setUser(demoUser);
-              setUserPhone(session.phone);
-            } else {
-              setUser(null);
-              setUserPhone(null);
+            const token = await firebaseUser.getIdTokenResult();
+            if (firebase.auth.currentUser?.uid === firebaseUser.uid) {
+              setHasGlobalAdminAccess(token.claims.admin === true);
             }
-          } catch {
-            setUser(null);
-            setUserPhone(null);
+          } catch (error) {
+            console.warn('Could not verify administrator role:', error);
           }
-          setIsUserLoading(false);
         }
+        setIsUserLoading(false);
       });
       return () => unsubscribe();
     }
   }, [firebase]);
 
   // Determine if the current user is an admin
-  const isAdmin = ADMIN_PHONES.includes(userPhone || '');
+  const isAdmin = hasGlobalAdminAccess || ADMIN_PHONES.includes(userPhone || '');
 
   return (
-    <AuthContext.Provider value={{ user, isUserLoading, auth: firebase.auth, isAdmin, userPhone }}>
+    <AuthContext.Provider value={{ user, isUserLoading, auth: firebase.auth, isAdmin, hasGlobalAdminAccess, userPhone }}>
       {children}
     </AuthContext.Provider>
   );

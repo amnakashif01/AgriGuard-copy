@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Activity, Users, FileCheck, Clock, RefreshCw, Shield, Lock } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
-import { listLogs, getDailyReportCounts, getAdminDashboardStats } from "@/lib/repositories";
+import { useEffect, useState } from "react";
+import { subscribeAdminActivity } from "@/lib/admin-activity";
 import { AdminLog } from "@/lib/models";
 import LoadingSpinner from "@/components/agrisahayak/loading-spinner";
 import { useAuth } from "@/firebase";
@@ -16,60 +16,31 @@ import Link from "next/link";
 
 
 export default function AdminPage() {
-    const { isAdmin, isUserLoading } = useAuth();
+    const { user, isAdmin, isUserLoading, hasGlobalAdminAccess } = useAuth();
     const [logs, setLogs] = useState<AdminLog[]>([]);
     const [chartData, setChartData] = useState<{date: string, reports: number}[]>([]);
     const [adminStats, setAdminStats] = useState<{totalReportsToday: number, activeUsers: number, avgConfidence: string, avgResponseTime: string}>({
         totalReportsToday: 0, activeUsers: 0, avgConfidence: '—', avgResponseTime: '—'
     });
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [error, setError] = useState<string | null>(null);
 
-    const fetchData = useCallback(async (isRefresh = false) => {
-        if (isRefresh) setRefreshing(true);
-        try {
-            const [fetchedLogs, fetchedChartData, fetchedStats] = await Promise.all([
-                listLogs(20),
-                getDailyReportCounts(),
-                getAdminDashboardStats()
-            ]);
-            setLogs(fetchedLogs);
-            setChartData(fetchedChartData);
-            setAdminStats(fetchedStats);
-        } catch (error) {
-            console.error("Failed to fetch admin data:", error);
-        } finally {
+    useEffect(() => {
+        if (isUserLoading) return;
+        if (!user || !isAdmin) { setLoading(false); return; }
+        setLoading(true);
+        setError(null);
+        setLogs([]);
+        setChartData([]);
+        setAdminStats({ totalReportsToday: 0, activeUsers: 0, avgConfidence: '—', avgResponseTime: '—' });
+        return subscribeAdminActivity(user.uid, hasGlobalAdminAccess, snapshot => {
+            setLogs(snapshot.logs);
+            setChartData(snapshot.chartData);
+            setAdminStats(snapshot.stats);
             setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (isAdmin) {
-            fetchData();
-        } else if (!isUserLoading) {
-            setLoading(false);
-        }
-    }, [fetchData, isAdmin, isUserLoading]);
-
-    // Auto-refresh every 30 seconds
-    useEffect(() => {
-        if (!isAdmin) return;
-        const interval = setInterval(() => fetchData(), 30000);
-        return () => clearInterval(interval);
-    }, [fetchData, isAdmin]);
-
-    // Listen for reportCreated events to refresh data
-    useEffect(() => {
-        const handleReportCreated = () => {
-            if (isAdmin) {
-                console.log('📊 Admin: reportCreated event received, refreshing...');
-                fetchData(true);
-            }
-        };
-        window.addEventListener('reportCreated', handleReportCreated);
-        return () => window.removeEventListener('reportCreated', handleReportCreated);
-    }, [fetchData, isAdmin]);
+        }, message => { setError(message); setLoading(false); });
+    }, [user?.uid, isAdmin, isUserLoading, hasGlobalAdminAccess, refreshKey]);
 
     // ── ACCESS DENIED for non-admin users ──────────────────────────────────
     if (!isUserLoading && !isAdmin) {
@@ -128,21 +99,23 @@ export default function AdminPage() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
-                        <p className="text-sm text-muted-foreground">Restricted to administrators only</p>
+                        <p className="text-sm text-muted-foreground">{hasGlobalAdminAccess ? 'Live project activity' : 'Live activity for this demo account'}</p>
                     </div>
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => fetchData(true)}
-                    disabled={refreshing}
+                    onClick={() => setRefreshKey(key => key + 1)}
+                    disabled={loading}
                     className="gap-2"
                 >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    {loading ? 'Refreshing...' : 'Refresh'}
                 </Button>
             </div>
 
+            {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+            {!hasGlobalAdminAccess && <p className="text-sm text-muted-foreground">These figures show this account’s saved reports and activity. Project-wide data requires a verified administrator account.</p>}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard
                     title="Total Reports Today"
@@ -150,7 +123,7 @@ export default function AdminPage() {
                     icon={<FileCheck className="h-5 w-5 text-muted-foreground"/>}
                 />
                 <MetricCard
-                    title="Registered Users"
+                    title={hasGlobalAdminAccess ? "Registered Users" : "Accounts in View"}
                     value={loading ? '...' : String(adminStats.activeUsers)}
                     icon={<Users className="h-5 w-5 text-muted-foreground"/>}
                 />
@@ -189,7 +162,7 @@ export default function AdminPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Agent Activity Logs</CardTitle>
-                    <CardDescription>Real-time monitoring of AI agent actions from Firestore.</CardDescription>
+                    <CardDescription>Live agent activity and saved report status.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {loading ? (

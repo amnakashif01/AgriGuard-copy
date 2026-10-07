@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, X, Check, AlertTriangle, Cloud, DollarSign, Shield, Info, ClipboardCheck, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { 
-  getUserNotifications, 
+  subscribeUserNotifications,
   markNotificationAsRead, 
   markAllNotificationsAsRead,
   NotificationType,
@@ -20,62 +20,43 @@ export default function NotificationsPanel() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const unreadCount = notifications.filter(notification => !notification.read).length;
 
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const handleNotificationCreated = () => { void fetchNotifications(); };
-    const handleFocus = () => { if (user) void fetchNotifications(); };
-    const handleVisibilityChange = () => {
-      if (user && document.visibilityState === 'visible') void fetchNotifications();
-    };
-    window.addEventListener('notificationCreated', handleNotificationCreated);
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      window.removeEventListener('notificationCreated', handleNotificationCreated);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const userNotifications = await getUserNotifications(user?.uid || '', 20);
-      setNotifications(userNotifications);
-      setUnreadCount(userNotifications.filter(n => !n.read).length);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
+    setNotifications([]);
+    setError(null);
+    if (!user?.uid) { setLoading(false); return; }
+    setLoading(true);
+    return subscribeUserNotifications(user.uid, items => {
+      setNotifications(items);
       setLoading(false);
-    }
-  };
+    }, error => {
+      console.error('Notification subscription failed:', error);
+      setError('Notifications could not connect. Please retry.');
+      setLoading(false);
+    }, 50);
+  }, [user?.uid, refreshKey]);
 
   const handleMarkAsRead = async (notificationId: string) => {
+    const notification = notifications.find(item => item.id === notificationId);
+    if (!user || !notification || notification.read) return;
     try {
-      await markNotificationAsRead(notificationId);
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      await markNotificationAsRead(user.uid, notification);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Could not mark notification as read:', error);
+      setError('Could not save read status. Please retry.');
     }
   };
 
   const handleMarkAllAsRead = async () => {
+    if (!user) return;
     try {
-      await markAllNotificationsAsRead(user?.uid || '');
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
+      await markAllNotificationsAsRead(user.uid, notifications);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('Could not mark notifications as read:', error);
+      setError('Could not save read status. Please retry.');
     }
   };
 
@@ -177,7 +158,10 @@ export default function NotificationsPanel() {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4" aria-live="polite">
+        {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error} <Button variant="ghost" size="sm" onClick={() => setRefreshKey(key => key + 1)}>Retry</Button>
+        </div>}
         {notifications.length === 0 ? (
           <div className="text-center py-8">
             <div className="p-4 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
@@ -240,6 +224,7 @@ export default function NotificationsPanel() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleMarkAsRead(notification.id)}
+                            aria-label="Mark notification as read"
                             className="h-6 w-6 p-0 hover:bg-blue-100"
                           >
                             <X className="h-3 w-3" />

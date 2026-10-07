@@ -1,3 +1,4 @@
+import { getAuth } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, query, orderBy, limit, where, serverTimestamp, getDocFromCache, addDoc, getCountFromServer, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { getDb, getApp } from './firestore';
 import type { UserProfile, DiagnosisReport, AdminLog, Supplier, ReportHistoryEntry } from './models';
@@ -385,10 +386,15 @@ export async function createLog(logData: Omit<AdminLog, 'id' | 'timestamp'>): Pr
     const docRef = doc(logsCollection);
     const now = new Date().toISOString();
     
-    // Fire and forget
-    setDoc(docRef, { ...logData, timestamp: now })
-        .catch(e => console.warn('Background log creation delayed:', e));
-        
+    const uid = getAuth(getApp()).currentUser?.uid;
+    const entry = { ...logData, timestamp: now, ...(uid ? { userId: uid } : {}) };
+    // Keep project logs for verified administrators and an owner-readable activity feed.
+    if (uid) {
+        setDoc(doc(db, 'users', uid, 'logs', docRef.id), entry)
+            .catch(error => console.error('Could not save account activity:', error));
+    }
+    setDoc(docRef, entry).catch(error => console.warn('Could not save project activity:', error));
+
     return docRef.id;
 }
 
