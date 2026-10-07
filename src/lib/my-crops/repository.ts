@@ -92,7 +92,7 @@ export async function finishPlantRecord(uid: string, cropId: string, plantId: st
     const now = new Date().toISOString();
     const cleanAnalysis = JSON.parse(JSON.stringify(analysis));
     transaction.update(recordRef, { ...cleanAnalysis, status: 'Complete', error: '', completedAt: now });
-    transaction.update(reportRef, { ...cleanAnalysis.diagnosis, severityScore: analysis.severityScore, severityExplanation: analysis.severityExplanation, status: 'Complete', updatedAt: now });
+    transaction.update(reportRef, { ...cleanAnalysis.diagnosis, severityScore: analysis.severityScore, severityExplanation: analysis.severityExplanation, visualHighlightsReviewed: true, status: 'Complete', updatedAt: now });
     if (plant.data().latestRecordId === reportId) {
       transaction.update(plantRef, { latestSeverityScore: analysis.severityScore, latestDisease: analysis.diagnosis.disease, updatedAt: now });
     }
@@ -111,5 +111,23 @@ export async function failPlantRecord(uid: string, cropId: string, plantId: stri
     if (!snapshot.exists() || snapshot.data().status === 'Complete') return;
     transaction.update(ref, { status: 'Error', error });
     transaction.update(doc(db, 'users', uid, 'reports', reportId), { status: 'Error', updatedAt: new Date().toISOString() });
+  });
+}
+
+
+export async function saveMissingSeverity(uid: string, cropId: string, plantId: string, reportId: string, result: { severityScore: number | null; severityExplanation: string }, db: Firestore = getDb()) {
+  if (result.severityScore !== null && (!Number.isInteger(result.severityScore) || result.severityScore < 0 || result.severityScore > 100)) throw new Error('Invalid severity estimate.');
+  const cropRef = doc(db, 'users', uid, 'crops', cropId);
+  const plantRef = doc(cropRef, 'plants', plantId);
+  const recordRef = doc(plantRef, 'records', reportId);
+  const reportRef = doc(db, 'users', uid, 'reports', reportId);
+  await runTransaction(db, async transaction => {
+    const [crop, plant, record, report] = await Promise.all([transaction.get(cropRef), transaction.get(plantRef), transaction.get(recordRef), transaction.get(reportRef)]);
+    if (!crop.exists() || crop.data().deletingAt || !plant.exists() || !record.exists()) throw new Error('This plant record is no longer available.');
+    if (record.data().status !== 'Complete') throw new Error('Complete the diagnosis before estimating severity.');
+    if (record.data().severityScore != null) return;
+    transaction.update(recordRef, result);
+    if (report.exists()) transaction.update(reportRef, result);
+    if (plant.data().latestRecordId === reportId) transaction.update(plantRef, { latestSeverityScore: result.severityScore });
   });
 }

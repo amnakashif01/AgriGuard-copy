@@ -18,7 +18,7 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'demo-agriguard-copy.firebaseapp.com';
   const { getApp, getDb } = await import('../src/lib/firestore');
   const { deleteCrop } = await import('../src/lib/my-crops/delete-crop');
-  const { addCrop, startPlantRecord, finishPlantRecord, failPlantRecord, plantNameExists } = await import('../src/lib/my-crops/repository');
+  const { addCrop, startPlantRecord, finishPlantRecord, failPlantRecord, plantNameExists, saveMissingSeverity } = await import('../src/lib/my-crops/repository');
   const app = getApp(), db = getDb(), auth = getAuth(app);
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
   connectFirestoreEmulator(db, host, Number(port));
@@ -74,6 +74,18 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
     await finishPlantRecord(uid, cropId, first.plantId, failed.reportId, { ...analysis, severityScore: null });
     assert.equal((await getDoc(doc(plantRef, 'records', failed.reportId))).data()?.status, 'Complete');
     assert.equal((await getDoc(plantRef)).data()?.recordCount, 3, 'retry reuses saved record');
+    const missingScoreRef = doc(plantRef, 'records', failed.reportId);
+    const beforeScoreRecovery = (await getDoc(missingScoreRef)).data()!;
+    await saveMissingSeverity(uid, cropId, first.plantId, failed.reportId, { severityScore: 42, severityExplanation: 'Visible evidence' });
+    const afterScoreRecovery = (await getDoc(missingScoreRef)).data()!;
+    assert.equal(afterScoreRecovery.severityScore, 42);
+    assert.equal(afterScoreRecovery.createdAt, beforeScoreRecovery.createdAt);
+    assert.deepEqual(afterScoreRecovery.diagnosis, beforeScoreRecovery.diagnosis, 'score repair preserves the saved diagnosis and plan');
+    assert.equal((await getDoc(plantRef)).data()?.recordCount, 3);
+    await saveMissingSeverity(uid, cropId, first.plantId, failed.reportId, { severityScore: 10, severityExplanation: 'Late duplicate response' });
+    assert.equal((await getDoc(missingScoreRef)).data()?.severityScore, 42, 'a completed score cannot be overwritten by a racing retry');
+    await assert.rejects(saveMissingSeverity(uid, cropId, first.plantId, failed.reportId, { severityScore: 101, severityExplanation: 'Invalid' }), /Invalid severity/);
+
     const older = await startPlantRecord(uid, cropId, { ...input, plantId: first.plantId });
     const newer = await startPlantRecord(uid, cropId, { ...input, plantId: first.plantId });
     await finishPlantRecord(uid, cropId, first.plantId, newer.reportId, { ...analysis, severityScore: 20 });

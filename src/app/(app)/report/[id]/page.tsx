@@ -199,6 +199,7 @@ export default function ReportDetailPage() {
         const candidates = [rawReport, previousReport].filter((candidate): candidate is DiagnosisReport =>
             Boolean(candidate && candidate.status === 'Complete'
                 && candidate.visualHighlightsReviewed !== true
+                && !candidate.visualHighlights?.length
                 && !highlightReviewInFlightRef.current.has(candidate.id)
                 && candidate.severity !== 'None'
                 && !/healthy|not a crop|not a plant/i.test(candidate.disease || '')

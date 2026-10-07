@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { vectorSearch } from "@/lib/vector-search";
-import { mergeVisualHighlights } from '@/lib/report-utils';
+import { withAiDeadline } from '@/lib/ai-request';
 
 const InstantDiagnosisFromImageAndSymptomsInputSchema = z.object({
   photoDataUri: z
@@ -80,6 +80,8 @@ const InstantDiagnosisFromImageAndSymptomsOutputSchema = z.object({
   crop: z.string().describe('The type of crop identified in the image (e.g., Cotton, Wheat, Rice, Sugarcane, Maize, etc.). If crop cannot be identified, use "Unknown Crop".'),
   disease: z.string().describe('The name of the disease or pest affecting the crop. Use "Healthy" ONLY if the plant shows absolutely no symptoms. If symptoms are present but disease cannot be identified, use "Unknown Disease" or "Unidentified Issue".'),
   confidence: z.number().describe('The confidence score (0-100) of the diagnosis.'),
+  severityScore: z.number().int().min(0).max(100).nullable().optional().describe('Estimated visible symptom severity, separate from diagnosis confidence.'),
+  severityExplanation: z.string().optional().describe('A short explanation of the visible evidence for the severity estimate.'),
   affectedParts: z.string().array().describe('The parts of the crop affected by the disease or pest. Use empty array [] for healthy plants.'),
   severity: z
     .enum(['None', 'Low', 'Medium', 'High'])
@@ -98,7 +100,7 @@ export type InstantDiagnosisFromImageAndSymptomsOutput = z.infer<
 export async function localizeDiagnosisHighlights(
   input: z.infer<typeof VisualLocalizationInputSchema>
 ): Promise<InstantDiagnosisFromImageAndSymptomsOutput['visualHighlights']> {
-  const { output } = await visualLocalizationPrompt(input);
+  const { output } = await withAiDeadline(signal => visualLocalizationPrompt(input, { abortSignal: signal }), 30000);
   return output?.visualHighlights || [];
 }
 
@@ -112,7 +114,10 @@ export async function instantDiagnosisFromImageAndSymptoms(
 const prompt = ai.definePrompt({
   name: 'instantDiagnosisFromImageAndSymptomsPrompt',
   input: {schema: InternalPromptInputSchema},
-  output: {schema: InstantDiagnosisFromImageAndSymptomsOutputSchema},
+  output: {schema: InstantDiagnosisFromImageAndSymptomsOutputSchema.extend({
+    severityScore: z.number().int().min(0).max(100).nullable(),
+    severityExplanation: z.string(),
+  })},
   prompt: `You are an expert plant pathologist specializing in Pakistani crops (cotton, wheat, rice, sugarcane, maize).
 Analyze the image and symptoms provided to diagnose any disease or pest affecting it.
 {{#if crop}}The user has identified the crop as: {{{crop}}}. Validate this based on the image, or use this context to guide your diagnosis.{{/if}}
@@ -143,6 +148,8 @@ Based on the image analysis and any knowledge base context above, identify:
    - Use "Low" for minor symptoms
    - Use "Medium" for moderate symptoms
    - Use "High" for severe symptoms
+   - Also return severityScore as an integer 0–100 estimating VISIBLE symptom severity: 0 means no visible symptoms, 1–33 mild/localised, 34–66 moderate, 67–100 extensive visible damage. This is NOT diagnostic confidence, a validated measurement, or an estimate of the entire field. Do not infer unseen plant parts or force improvement for a follow-up. Use null if this is not a plant or the photo is inadequate to estimate severity.
+   - Return severityExplanation in the requested language, briefly explaining the visible evidence or why a score cannot be estimated.
 6. Description:
    - For healthy: explain why it's considered healthy (green leaves, no spots, vigorous growth)
    - For unknown disease: describe the visible symptoms in detail (yellowing, brown spots, size, location, etc.)
@@ -164,7 +171,7 @@ CRITICAL: If you see yellowing, brown spots, wilting, or another abnormality, do
 CRITICAL: The visualHighlights bounding boxes MUST use [ymin, xmin, ymax, xmax] coordinates scaled from 0 to 1000 relative to the full image. Return a tight box around each clearly visible affected area. Do not return an empty list when an affected area is visible, and never invent a lesion.
 CRITICAL: You MUST include the protectionPlan JSON object for any identified disease to give the farmer a 1-month treatment plan!
 
-Respond in JSON format.`, // prettier-ignore
+Be concise and actionable without repeating advice. Keep the full treatment plan, all four protection-plan weeks, and all clearly visible image highlights. Respond in JSON format.`, // prettier-ignore
 });
 
 const visualLocalizationPrompt = ai.definePrompt({
@@ -188,12 +195,14 @@ const instantDiagnosisFromImageAndSymptomsFlow = ai.defineFlow(
   },
   async input => {
     // Retry helper with reduced backoff for live demo speed
-    async function retry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 500): Promise<T> {
+    async function retry<T>(fn: () => Promise<T>, signal: AbortSignal, attempts = 2, delayMs = 500): Promise<T> {
       let lastErr: any;
       for (let i = 0; i < attempts; i++) {
         try {
+          signal.throwIfAborted();
           return await fn();
         } catch (err: any) {
+          signal.throwIfAborted();
           lastErr = err;
           const msg = err?.message || String(err);
           // Fail fast on Google AI Studio Free Tier Quota limits
@@ -205,7 +214,8 @@ const instantDiagnosisFromImageAndSymptomsFlow = ai.defineFlow(
           if (code && !['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ECONNRESET'].includes(code)) {
             throw err;
           }
-          // Exponential backoff with reduced base delay
+          if (i === attempts - 1) throw err;
+          // Retry only while the shared request budget remains.
           await new Promise(r => setTimeout(r, delayMs * Math.pow(2, i)));
         }
       }
@@ -228,30 +238,14 @@ const instantDiagnosisFromImageAndSymptomsFlow = ai.defineFlow(
       console.warn('RAG search failed, proceeding without knowledge context:', ragError);
     }
 
-    // Step 2: Single Gemini API call with optional RAG context (no duplicate prompt re-definition)
-    const { output } = await retry(
-      () => prompt({ ...input, knowledgeContext: knowledgeContext || undefined }),
-      2,
-      500
-    );
-    const diagnosis = output!;
-    const normalizedDisease = diagnosis.disease.toLocaleLowerCase();
-    const isHealthy = normalizedDisease.includes('healthy') || diagnosis.severity === 'None';
-    const isNotCrop = normalizedDisease.includes('not a crop') || normalizedDisease.includes('not a plant');
-
-    if (!isHealthy && !isNotCrop) {
-      try {
-        const localized = await localizeDiagnosisHighlights({
-          photoDataUri: input.photoDataUri,
-          crop: diagnosis.crop,
-          disease: diagnosis.disease,
-          description: diagnosis.description,
-        });
-        diagnosis.visualHighlights = mergeVisualHighlights(diagnosis.visualHighlights, localized);
-      } catch (localizationError) {
-        console.warn('Could not localize affected areas; returning diagnosis without markers:', localizationError);
-      }
-    }
-    return diagnosis;
+    // One model pass returns diagnosis, plans, visible severity and image markers.
+    // The primary prompt already localizes lesions; a second full image pass used
+    // to delay every diseased report. Saved reports can still request localization.
+    const { output } = await withAiDeadline(signal => retry(
+      () => prompt({ ...input, knowledgeContext: knowledgeContext || undefined }, { abortSignal: signal }),
+      signal
+    ));
+    if (!output) throw new Error('The AI service returned an empty analysis. Please retry.');
+    return output;
   }
 );

@@ -3,6 +3,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { verifyCropUser } from '../server/verify-user';
+import { withAiDeadline } from '../ai-request';
 import { diagnoseCrop } from './diagnosis-actions';
 
 const inputSchema = z.object({
@@ -29,20 +30,30 @@ export async function analyzeTrackedPlant(rawInput: z.input<typeof inputSchema>,
   const parsed = inputSchema.safeParse(rawInput);
   if (!parsed.success) return { ok: false as const, error: 'Please provide a valid plant photo, crop, age and symptoms.' };
   const input = parsed.data;
-  const [diagnosis, severity] = await Promise.allSettled([
-    diagnoseCrop({ ...input, symptoms: `Plant age: ${input.age}. ${input.symptoms}` }),
-    severityPrompt(input),
-  ]);
-  if (diagnosis.status !== 'fulfilled') return { ok: false as const, error: 'Plant analysis is temporarily unavailable. Please retry.' };
-  if (!diagnosis.value.ok) return diagnosis.value;
-  const result = diagnosis.value.diagnosis;
-  const isNotPlant = /not a crop|not a plant/i.test(result.disease);
+  const response = await diagnoseCrop({ ...input, symptoms: `Plant age: ${input.age}. ${input.symptoms}` });
+  if (!response.ok) return response;
+  const diagnosis = response.diagnosis;
   return {
     ok: true as const,
     analysis: {
-      diagnosis: result,
-      severityScore: isNotPlant ? null : severity.status === 'fulfilled' ? severity.value.output?.severityScore ?? null : null,
-      severityExplanation: isNotPlant ? 'The image was not identified as a plant.' : severity.status === 'fulfilled' ? severity.value.output?.explanation || 'A severity estimate was unavailable for this image.' : 'The diagnosis is saved; the severity estimate was temporarily unavailable.',
+      diagnosis,
+      severityScore: diagnosis.severityScore ?? null,
+      severityExplanation: diagnosis.severityExplanation || 'A severity estimate could not be made from this photo.',
     },
   };
+}
+
+// Repair a missing score on an older, completed record without regenerating its
+// diagnosis, treatment plan, history, notifications or creating another report.
+export async function estimateTrackedPlantSeverity(rawInput: z.input<typeof inputSchema>, idToken: string) {
+  try {
+    await verifyCropUser(idToken);
+    const parsed = inputSchema.safeParse(rawInput);
+    if (!parsed.success) return { ok: false as const, error: 'The saved photo could not be used. Please add a clearer photo in a new record.' };
+    const { output } = await withAiDeadline(signal => severityPrompt(parsed.data, { abortSignal: signal }), 30000);
+    if (!output) throw new Error('No severity result was returned.');
+    return { ok: true as const, severityScore: output.severityScore, severityExplanation: output.explanation };
+  } catch {
+    return { ok: false as const, error: 'Severity could not be estimated right now. Your full report is still available; please retry later.' };
+  }
 }

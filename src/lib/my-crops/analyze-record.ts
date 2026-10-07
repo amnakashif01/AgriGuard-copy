@@ -3,8 +3,8 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { getApp, getDb } from '../firestore';
 import { getAuth } from 'firebase/auth';
-import { analyzeTrackedPlant } from '../actions/plant-analysis-actions';
-import { finishPlantRecord, failPlantRecord } from './repository';
+import { analyzeTrackedPlant, estimateTrackedPlantSeverity } from '../actions/plant-analysis-actions';
+import { finishPlantRecord, failPlantRecord, saveMissingSeverity } from './repository';
 import { createLog } from '../repositories';
 import type { PlantRecord } from './models';
 
@@ -36,4 +36,21 @@ export async function analyzeSavedPlantRecord(uid: string, cropId: string, plant
     await failPlantRecord(uid, cropId, plantId, reportId, message).catch(console.warn);
     throw new Error(message);
   }
+}
+
+
+export async function recoverSavedSeverity(uid: string, cropId: string, plantId: string, reportId: string, language: 'english' | 'urdu') {
+  const db = getDb();
+  const currentUser = getAuth(getApp()).currentUser;
+  if (!currentUser || currentUser.uid !== uid) throw new Error('Please sign in again.');
+  const [record, report] = await Promise.all([
+    getDoc(doc(db, 'users', uid, 'crops', cropId, 'plants', plantId, 'records', reportId)),
+    getDoc(doc(db, 'users', uid, 'reports', reportId)),
+  ]);
+  if (!record.exists() || !report.exists()) throw new Error('The saved photo is no longer available.');
+  if (record.data().severityScore != null) return;
+  const data = record.data() as PlantRecord;
+  const result = await estimateTrackedPlantSeverity({ photoDataUri: report.data().imageThumb, crop: data.cropName, age: data.age, symptoms: data.symptoms, language }, await currentUser.getIdToken());
+  if (!result.ok) throw new Error(result.error);
+  await saveMissingSeverity(uid, cropId, plantId, reportId, { severityScore: result.severityScore, severityExplanation: result.severityExplanation });
 }
