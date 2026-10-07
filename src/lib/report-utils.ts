@@ -2,6 +2,17 @@ import type { DiagnosisReport } from './models';
 
 export type VisualHighlight = { boundingBox: number[]; reasoning: string };
 
+// Version the dedicated image review separately from the main diagnosis. Older
+// one-pass reports incorrectly used visualHighlightsReviewed=true as completion.
+export const HIGHLIGHT_REVIEW_VERSION = 1;
+export function needsHighlightReview(report: Partial<DiagnosisReport>): boolean {
+    return report.status === 'Complete'
+        && report.visualHighlightsReviewVersion !== HIGHLIGHT_REVIEW_VERSION
+        && report.severity !== 'None'
+        && !/healthy|not a crop|not a plant/i.test(report.disease || '')
+        && Boolean(report.imageUrl || report.imageThumb);
+}
+
 export function mergeVisualHighlights(primary: VisualHighlight[], localized: VisualHighlight[]): VisualHighlight[] {
     const merged = [...primary];
     for (const candidate of localized) {

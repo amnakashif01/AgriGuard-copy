@@ -101,7 +101,8 @@ export async function localizeDiagnosisHighlights(
   input: z.infer<typeof VisualLocalizationInputSchema>
 ): Promise<InstantDiagnosisFromImageAndSymptomsOutput['visualHighlights']> {
   const { output } = await withAiDeadline(signal => visualLocalizationPrompt(input, { abortSignal: signal }), 30000);
-  return output?.visualHighlights || [];
+  if (!output) throw new Error('The image detail check returned no result. Please retry.');
+  return output.visualHighlights;
 }
 
 export async function instantDiagnosisFromImageAndSymptoms(
@@ -171,7 +172,7 @@ CRITICAL: If you see yellowing, brown spots, wilting, or another abnormality, do
 CRITICAL: The visualHighlights bounding boxes MUST use [ymin, xmin, ymax, xmax] coordinates scaled from 0 to 1000 relative to the full image. Return a tight box around each clearly visible affected area. Do not return an empty list when an affected area is visible, and never invent a lesion.
 CRITICAL: You MUST include the protectionPlan JSON object for any identified disease to give the farmer a 1-month treatment plan!
 
-Be concise and actionable without repeating advice. Keep the full treatment plan, all four protection-plan weeks, and all clearly visible image highlights. Respond in JSON format.`, // prettier-ignore
+Respond in JSON format.`, // prettier-ignore
 });
 
 const visualLocalizationPrompt = ai.definePrompt({

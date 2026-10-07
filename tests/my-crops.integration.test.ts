@@ -55,6 +55,22 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
     assert.equal(initialSnapshot?.severityScore, 70);
     assert.equal(initialSnapshot?.diagnosis.confidence, 91, 'confidence is separate from severity');
     assert.equal((await getDoc(doc(db, 'users', uid, 'reports', first.reportId))).data()?.status, 'Complete');
+    // Detail review runs only after the report is already complete and must not
+    // change the diagnosis, treatment, severity, timeline or completion events.
+    const { saveReviewedHighlights } = await import('../src/lib/report-highlight-review');
+    const firstReportRef = doc(db, 'users', uid, 'reports', first.reportId);
+    const beforeReview = { ...(await getDoc(firstReportRef)).data(), id: first.reportId } as any;
+    assert.equal(beforeReview.visualHighlightsReviewed, false);
+    const review = await saveReviewedHighlights(uid, beforeReview, [{ boundingBox: [20, 30, 60, 70], reasoning: 'Additional visible spot' }], db);
+    assert.equal(review?.visualHighlightsReviewVersion, 1);
+    for (const field of ['disease', 'confidence', 'description', 'plan', 'severityScore', 'createdAt', 'updatedAt', 'status']) {
+      assert.deepEqual((review as any)[field], beforeReview[field], `detail review preserves ${field}`);
+    }
+    assert.deepEqual((await getDoc(firstRecordRef)).data(), initialSnapshot, 'detail review preserves the immutable plant record');
+    const duplicateReview = await saveReviewedHighlights(uid, beforeReview, [{ boundingBox: [400, 400, 700, 700], reasoning: 'Duplicate attempt' }], db);
+    assert.deepEqual(duplicateReview?.visualHighlights, review?.visualHighlights, 'completed review is not overwritten by duplicate work');
+    assert.equal(await saveReviewedHighlights(uid, { ...beforeReview, disease: 'A stale diagnosis' }, [], db), null, 'a stale diagnosis cannot alter the current report');
+    assert.equal(await saveReviewedHighlights(uid, { ...beforeReview, id: 'already-deleted-report' }, [], db), null, 'late review cannot recreate a deleted report');
     const live = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Timeline did not update live')), 8000);
       stop = onSnapshot(collection(plantRef, 'records'), snapshot => { if (snapshot.size === 2) { clearTimeout(timer); resolve(); } }, reject);

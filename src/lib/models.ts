@@ -110,6 +110,8 @@ export type DiagnosisReport = {
     reasoning: string;
   }[];
   visualHighlightsReviewed?: boolean;
+  /** Set only after the dedicated image review has completed. */
+  visualHighlightsReviewVersion?: number;
   visualHighlight?: { // Backwards compatibility for old reports
     boundingBox?: { ymin: number; xmin: number; ymax: number; xmax: number; };
     reasoning: string;

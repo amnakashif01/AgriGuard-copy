@@ -92,7 +92,7 @@ export async function finishPlantRecord(uid: string, cropId: string, plantId: st
     const now = new Date().toISOString();
     const cleanAnalysis = JSON.parse(JSON.stringify(analysis));
     transaction.update(recordRef, { ...cleanAnalysis, status: 'Complete', error: '', completedAt: now });
-    transaction.update(reportRef, { ...cleanAnalysis.diagnosis, severityScore: analysis.severityScore, severityExplanation: analysis.severityExplanation, visualHighlightsReviewed: true, status: 'Complete', updatedAt: now });
+    transaction.update(reportRef, { ...cleanAnalysis.diagnosis, severityScore: analysis.severityScore, severityExplanation: analysis.severityExplanation, visualHighlightsReviewed: false, visualHighlightsReviewVersion: 0, status: 'Complete', updatedAt: now });
     if (plant.data().latestRecordId === reportId) {
       transaction.update(plantRef, { latestSeverityScore: analysis.severityScore, latestDisease: analysis.diagnosis.disease, updatedAt: now });
     }

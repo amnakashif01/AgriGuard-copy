@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useAuth, useFirebase } from "@/firebase";
 import { getDoc, doc, collection, query, where, getDocs } from "firebase/firestore";
 import { DiagnosisReport } from "@/lib/models";
-import { findPreviousReport, mergeVisualHighlights } from "@/lib/report-utils";
-import { updateReport } from "@/lib/repositories";
-import { localizeDiagnosisHighlights } from "@/ai/flows/instant-diagnosis-from-image-and-symptoms";
+import { findPreviousReport, needsHighlightReview } from "@/lib/report-utils";
+import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,27 +13,6 @@ import Link from "next/link";
 import CropImageHighlights from "@/components/agrisahayak/crop-image-highlights";
 import { ArrowLeft, ArrowRight, ShieldAlert, CheckCircle, Shield, Calendar, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useParams } from "next/navigation";
-
-async function imageToDataUri(src: string): Promise<string> {
-    if (src.startsWith('data:')) return src;
-    const response = await fetch(src);
-    if (!response.ok) throw new Error('Unable to load report image for highlight review');
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-function needsHighlightReview(report: DiagnosisReport): boolean {
-    return report.status === 'Complete'
-        && report.visualHighlightsReviewed !== true
-        && report.severity !== 'None'
-        && !/healthy|not a crop|not a plant/i.test(report.disease || '')
-        && Boolean(report.imageUrl || report.imageThumb);
-}
 
 export default function CompareReportPage() {
     const { user } = useAuth();
@@ -91,22 +69,10 @@ export default function CompareReportPage() {
                     setHighlightReviewStatus(status => ({ ...status, [candidate.id]: 'reviewing' }));
                     void (async () => {
                         try {
-                            const photoDataUri = await imageToDataUri((candidate.imageUrl || candidate.imageThumb) as string);
-                            const localized = await localizeDiagnosisHighlights({
-                                photoDataUri,
-                                crop: candidate.crop || 'Unknown Crop',
-                                disease: candidate.disease || 'Unknown Disease',
-                                description: candidate.description || '',
-                            });
-                            const visualHighlights = mergeVisualHighlights(candidate.visualHighlights || [], localized);
-                            await updateReport(user.uid, candidate.id, {
-                                visualHighlights,
-                                visualHighlightsReviewed: true,
-                            } as any);
+                            const refreshed = await reviewReportHighlights(user.uid, candidate);
                             if (cancelled) return;
-                            const refreshed = { ...candidate, visualHighlights, visualHighlightsReviewed: true };
-                            if (candidate.id === currData.id) setCurrentReport(refreshed);
-                            if (candidate.id === previous?.id) setPreviousReport(refreshed);
+                            if (refreshed && candidate.id === currData.id) setCurrentReport(refreshed);
+                            if (refreshed && candidate.id === previous?.id) setPreviousReport(refreshed);
                             setHighlightReviewStatus(status => {
                                 const next = { ...status };
                                 delete next[candidate.id];

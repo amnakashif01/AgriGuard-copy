@@ -16,7 +16,7 @@ import { deleteField, getDoc, doc, collection, query, where, getDocs } from "fir
 import { useFirebase } from "@/firebase";
 import LoadingSpinner from "@/components/agrisahayak/loading-spinner";
 import { useToast } from '@/hooks/use-toast';
-import { instantDiagnosisFromImageAndSymptoms, localizeDiagnosisHighlights } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
+import { instantDiagnosisFromImageAndSymptoms } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
 import { updateReport, createLog, deleteReport, getProfile } from '@/lib/repositories';
 import { useParams, useRouter } from 'next/navigation';
 import { generateProtectionPlan } from '@/ai/flows/generate-protection-plan';
@@ -26,7 +26,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
 import { findPreviousReport, isPlanEligible } from "@/lib/report-utils";
-import { mergeVisualHighlights } from "@/lib/report-utils";
+import { needsHighlightReview } from "@/lib/report-utils";
+import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import SuppliersCard from "@/components/agrisahayak/suppliers-card";
 
 /** Safely parse any timestamp to a readable string */
@@ -197,13 +198,8 @@ export default function ReportDetailPage() {
     useEffect(() => {
         if (!user) return;
         const candidates = [rawReport, previousReport].filter((candidate): candidate is DiagnosisReport =>
-            Boolean(candidate && candidate.status === 'Complete'
-                && candidate.visualHighlightsReviewed !== true
-                && !candidate.visualHighlights?.length
-                && !highlightReviewInFlightRef.current.has(candidate.id)
-                && candidate.severity !== 'None'
-                && !/healthy|not a crop|not a plant/i.test(candidate.disease || '')
-                && (candidate.imageUrl || candidate.imageThumb))
+            Boolean(candidate && needsHighlightReview(candidate)
+                && !highlightReviewInFlightRef.current.has(candidate.id))
         );
         if (candidates.length === 0) return;
 
@@ -215,20 +211,8 @@ export default function ReportDetailPage() {
         const reviewSavedImages = async () => {
             const reviewed = await Promise.all(candidates.map(async candidate => {
                 try {
-                    const src = (candidate.imageUrl || candidate.imageThumb) as string;
-                    const photoDataUri = src.startsWith('data:') ? src : await urlToDataUri(src);
-                    const localized = await localizeDiagnosisHighlights({
-                        photoDataUri,
-                        crop: candidate.crop || 'Unknown Crop',
-                        disease: candidate.disease || 'Unknown Disease',
-                        description: candidate.description || '',
-                    });
-                    const visualHighlights = mergeVisualHighlights(candidate.visualHighlights || [], localized);
-                    await updateReport(user.uid, candidate.id, {
-                        visualHighlights,
-                        visualHighlightsReviewed: true,
-                    } as any);
-                    return { report: { ...candidate, visualHighlights, visualHighlightsReviewed: true }, failed: false };
+                    const reviewedReport = await reviewReportHighlights(user.uid, candidate);
+                    return { report: reviewedReport, id: candidate.id, failed: false };
                 } catch (error) {
                     console.warn(`Could not review saved report image highlights for ${candidate.id}:`, error);
                     return { report: null, id: candidate.id, failed: true };
@@ -254,7 +238,7 @@ export default function ReportDetailPage() {
         };
 
         void reviewSavedImages();
-    }, [user, rawReport?.id, rawReport?.status, rawReport?.visualHighlightsReviewed, previousReport?.id, previousReport?.visualHighlightsReviewed]);
+    }, [user, rawReport?.id, rawReport?.status, rawReport?.visualHighlightsReviewVersion, previousReport?.id, previousReport?.visualHighlightsReviewVersion]);
 
     const handleRetryDiagnosis = async () => {
         if (!user || !report) return;
@@ -279,7 +263,8 @@ export default function ReportDetailPage() {
                 severity: diagnosis.severity,
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
-                visualHighlightsReviewed: true,
+                visualHighlightsReviewed: false,
+                visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
                 plan: isPlanEligible({ ...diagnosis, status: 'Complete', imageUrl: src }) && diagnosis.plan ? diagnosis.plan : deleteField(),
                 protectionPlan: isPlanEligible({ ...diagnosis, status: 'Complete', imageUrl: src }) && diagnosis.protectionPlan ? diagnosis.protectionPlan : deleteField(),
@@ -345,7 +330,8 @@ export default function ReportDetailPage() {
                 severity: diagnosis.severity,
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
-                visualHighlightsReviewed: true,
+                visualHighlightsReviewed: false,
+                visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
                 symptoms: editSymptoms,
                 status: 'Complete',
