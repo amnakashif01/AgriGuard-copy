@@ -5,7 +5,6 @@ import { getApp, getDb } from '../firestore';
 import { getAuth } from 'firebase/auth';
 import { analyzeTrackedPlant } from '../actions/plant-analysis-actions';
 import { finishPlantRecord, failPlantRecord } from './repository';
-import { sendDiagnosisComplete } from '../notifications';
 import { createLog } from '../repositories';
 import type { PlantRecord } from './models';
 
@@ -30,7 +29,6 @@ export async function analyzeSavedPlantRecord(uid: string, cropId: string, plant
     if (!result.ok) throw new Error(result.error);
     await finishPlantRecord(uid, cropId, plantId, reportId, result.analysis);
     const diagnosis = result.analysis.diagnosis;
-    void sendDiagnosisComplete(uid, reportId, diagnosis.crop, diagnosis.disease, diagnosis.severity, diagnosis.confidence).catch(console.warn);
     void createLog({ agentName: 'diagnosticAgent', action: 'diagnosis_completed', reportId, status: 'success', duration: Date.now() - startedAt, payload: { confidence: diagnosis.confidence, cropId, plantId } });
     window.dispatchEvent(new Event('reportCreated'));
   } catch (error) {

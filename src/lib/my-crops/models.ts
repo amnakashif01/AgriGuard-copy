@@ -3,6 +3,7 @@ import type { InstantDiagnosisFromImageAndSymptomsOutput } from '@/ai/flows/inst
 export const CROP_OPTIONS = ['Wheat', 'Maize', 'Rice', 'Cotton', 'Sugarcane', 'Potato', 'Tomato', 'Chilli', 'Onion', 'Mustard', 'Sunflower', 'Chickpea', 'Mango', 'Citrus', 'Geranium'];
 
 export type MyCrop = {
+  deletingAt?: string;
   id: string; name: string; nameKey: string; plantCount: number; nextPlantNumber: number;
   createdAt: string; updatedAt: string;
 };

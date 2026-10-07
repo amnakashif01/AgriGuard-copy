@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
 import { getDb } from '../firestore';
+import { diagnosisNotification } from '../notification-data';
 import type { InstantDiagnosisFromImageAndSymptomsOutput } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
 import { cleanName, nameId, nameKey, plantCode, validateName, type MyCrop, type MyPlant, type PlantRecord } from './models';
 
@@ -40,6 +41,7 @@ export async function startPlantRecord(uid: string, cropId: string, input: Start
   await runTransaction(db, async transaction => {
     const [cropSnapshot, plantSnapshot] = await Promise.all([transaction.get(cropRef), transaction.get(plantRef)]);
     if (!cropSnapshot.exists()) throw new Error('This crop no longer exists. Return to My Crops.');
+    if (cropSnapshot.data().deletingAt) throw new Error('This crop is being deleted. Return to My Crops.');
     if (!input.plantId && plantSnapshot.exists()) throw new Error('This plant name is already in use. Please choose another name.');
     if (input.plantId && !plantSnapshot.exists()) throw new Error('This plant no longer exists. Return to your crop.');
     const crop = cropSnapshot.data() as MyCrop;
@@ -83,7 +85,8 @@ export async function finishPlantRecord(uid: string, cropId: string, plantId: st
   const recordRef = doc(plantRef, 'records', reportId);
   const reportRef = doc(db, 'users', uid, 'reports', reportId);
   await runTransaction(db, async transaction => {
-    const [record, plant] = await Promise.all([transaction.get(recordRef), transaction.get(plantRef)]);
+    const [record, plant, crop] = await Promise.all([transaction.get(recordRef), transaction.get(plantRef), transaction.get(cropRef)]);
+    if (!crop.exists() || crop.data().deletingAt) throw new Error('This crop has been deleted or is being deleted.');
     if (!record.exists() || !plant.exists()) throw new Error('The saved plant record could not be found.');
     if (record.data().status === 'Complete') return; // Completed history is immutable through this flow.
     const now = new Date().toISOString();
@@ -94,6 +97,8 @@ export async function finishPlantRecord(uid: string, cropId: string, plantId: st
       transaction.update(plantRef, { latestSeverityScore: analysis.severityScore, latestDisease: analysis.diagnosis.disease, updatedAt: now });
     }
     transaction.update(cropRef, { updatedAt: now });
+    const notification = diagnosisNotification(uid, { ...analysis.diagnosis, id: reportId, uid, status: 'Complete', createdAt: record.data().createdAt, updatedAt: now });
+    transaction.set(doc(db, 'users', uid, 'notifications', notification.id), notification);
   });
 }
 
@@ -101,7 +106,8 @@ export async function failPlantRecord(uid: string, cropId: string, plantId: stri
   const db = getDb();
   const ref = doc(db, 'users', uid, 'crops', cropId, 'plants', plantId, 'records', reportId);
   await runTransaction(db, async transaction => {
-    const snapshot = await transaction.get(ref);
+    const [snapshot, crop] = await Promise.all([transaction.get(ref), transaction.get(doc(db, 'users', uid, 'crops', cropId))]);
+    if (!crop.exists() || crop.data().deletingAt) return;
     if (!snapshot.exists() || snapshot.data().status === 'Complete') return;
     transaction.update(ref, { status: 'Error', error });
     transaction.update(doc(db, 'users', uid, 'reports', reportId), { status: 'Error', updatedAt: new Date().toISOString() });

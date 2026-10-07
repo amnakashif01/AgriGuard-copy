@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deleteApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, signInAnonymously } from 'firebase/auth';
-import { connectFirestoreEmulator, collection, doc, getDoc, getDocs, onSnapshot, setDoc, terminate } from 'firebase/firestore';
+import { connectFirestoreEmulator, collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where, terminate } from 'firebase/firestore';
 import type { RecordAnalysis } from '../src/lib/my-crops/repository';
 
 const photo = 'data:image/jpeg;base64,/9j/2Q==';
@@ -17,6 +17,7 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'test-key';
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'demo-agriguard-copy.firebaseapp.com';
   const { getApp, getDb } = await import('../src/lib/firestore');
+  const { deleteCrop } = await import('../src/lib/my-crops/delete-crop');
   const { addCrop, startPlantRecord, finishPlantRecord, failPlantRecord, plantNameExists } = await import('../src/lib/my-crops/repository');
   const app = getApp(), db = getDb(), auth = getAuth(app);
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
@@ -85,5 +86,32 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
     assert.equal((await getDocs(collection(cropRef, 'plants'))).size, 2, 'failed input creates no partial plant');
     await assert.rejects(getDoc(doc(db, 'users', 'different-user', 'crops', cropId)), /permission/i);
     await assert.rejects(setDoc(doc(db, 'users', 'different-user', 'crops', cropId, 'plants', first.plantId), { name: 'Intruder' }), /permission/i);
+    // Multiple pages of photo records must be removed, not only the crop document.
+    for (let index = 0; index < 11; index++) await startPlantRecord(uid, cropId, { ...input, plantId: first.plantId });
+    const oldCrop = { id: cropId, createdAt: (await getDoc(cropRef)).data()!.createdAt };
+    const reportsBeforeDelete = await getDocs(query(collection(db, 'users', uid, 'reports'), where('cropId', '==', cropId)));
+    const unrelated = doc(db, 'users', uid, 'reports', 'unrelated-report');
+    await setDoc(unrelated, { uid, crop: 'Wheat', status: 'Complete' });
+    await updateDoc(cropRef, { deletingAt: new Date().toISOString() }); // Simulate resuming interrupted deletion.
+    await assert.rejects(startPlantRecord(uid, cropId, { ...input, name: 'Blocked plant' }), /being deleted/);
+    await assert.rejects(finishPlantRecord(uid, cropId, second.plantId, second.reportId, analysis), /being deleted/);
+    await deleteCrop(uid, oldCrop);
+    assert.equal((await getDoc(cropRef)).exists(), false);
+    assert.equal((await getDocs(collection(cropRef, 'plants'))).size, 0);
+    assert.equal((await getDocs(collection(plantRef, 'records'))).size, 0);
+    assert.equal((await getDocs(query(collection(db, 'users', uid, 'reports'), where('cropId', '==', cropId)))).size, 0);
+    for (const report of reportsBeforeDelete.docs) assert.equal((await getDoc(doc(db, 'users', uid, 'notifications', `diagnosis_${report.id}`))).exists(), false);
+    assert.equal((await getDoc(unrelated)).exists(), true, 'standalone reports are preserved');
+    assert.equal((await getDoc(doc(db, 'users', uid, 'crops', customCropId))).exists(), true, 'other crops are preserved');
+    await deleteCrop(uid, oldCrop); // Idempotent repeat.
+    assert.equal(await addCrop(uid, 'Wheat'), cropId);
+    const replacement = await startPlantRecord(uid, cropId, input);
+    await deleteCrop(uid, oldCrop); // A stale dialog in another tab cannot delete the replacement.
+    assert.equal((await getDoc(doc(cropRef, 'plants', replacement.plantId))).exists(), true);
+    const emptyId = await addCrop(uid, 'Empty crop');
+    await deleteCrop(uid, { id: emptyId, createdAt: (await getDoc(doc(db, 'users', uid, 'crops', emptyId))).data()!.createdAt });
+    assert.equal((await getDoc(doc(db, 'users', uid, 'crops', emptyId))).exists(), false);
+    await assert.rejects(deleteCrop('different-user', oldCrop), /permission/i);
+
   } finally { stop(); await terminate(db); await deleteApp(app); }
 });
