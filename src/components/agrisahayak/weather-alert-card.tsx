@@ -21,6 +21,7 @@ export default function WeatherAlertCard() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<WeatherAlertsOutput | null>(null);
     const [cooldown, setCooldown] = useState(false);
+    const [weatherSource, setWeatherSource] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const { toast } = useToast();
 
@@ -30,7 +31,7 @@ export default function WeatherAlertCard() {
         }
     }, [user, profile]);
 
-    const CACHE_KEY = 'agrisahayak_weather_cache';
+    const CACHE_KEY = 'agrisahayak_weather_cache_v2';
     const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -48,6 +49,7 @@ export default function WeatherAlertCard() {
                 const parsed = JSON.parse(cached);
                 if (parsed.id === cacheId && Date.now() - parsed.timestamp < CACHE_DURATION_MS) {
                     setResult(parsed.result);
+                    setWeatherSource(parsed.source || null);
                     toast({ title: 'Weather Updated', description: 'Showing latest cached conditions.' });
                     return;
                 }
@@ -70,13 +72,14 @@ export default function WeatherAlertCard() {
             const res = await fetch('/api/weather', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ location: locationText })
+                body: JSON.stringify({ location: locationText, ...(typeof profile?.lat === 'number' && typeof profile?.lon === 'number' ? { lat: profile.lat, lon: profile.lon } : {}) })
             });
             const data = await res.json();
             if (res.ok && data.ok && data.weatherConditions) {
                 weatherConditions = data.weatherConditions;
+                setWeatherSource(data.source || null);
                 // Persist the lat/lon to the user's profile for future calls if available
-                if (user && data.lat && data.lon) {
+                if (user && typeof data.lat === 'number' && typeof data.lon === 'number') {
                     try {
                         await upsertProfile({ uid: user.uid, phone: profile?.phone || '', location: profile?.location || locationText, lat: data.lat, lon: data.lon });
                     } catch (e) {
@@ -84,19 +87,13 @@ export default function WeatherAlertCard() {
                     }
                 }
             } else {
-                console.warn('Server weather fetch returned empty, using fallback weather data', data);
-                // Use reasonable fallback based on Pakistan's typical weather
-                weatherConditions = 'Warm and humid conditions typical for the region. Temperature around 30-35°C with moderate humidity.';
+                throw new Error(data.message || 'Current weather is unavailable. Please try again.');
             }
 
             let response: WeatherAlertsOutput;
             try {
                 response = await proactiveWeatherAlertsWithRecommendations({ location: locationText || 'Pakistan', crops, weatherConditions });
             } catch (aiError: any) {
-                const message = String(aiError?.message || aiError).toLowerCase();
-                if (!message.includes('429') && !message.includes('quota') && !message.includes('rate limit')) {
-                    throw aiError;
-                }
 
                 response = {
                     alert: `Weather conditions detected for ${locationText || 'your area'}.`,
@@ -111,14 +108,15 @@ export default function WeatherAlertCard() {
                 localStorage.setItem(CACHE_KEY, JSON.stringify({
                     id: cacheId,
                     timestamp: Date.now(),
-                    result: response
+                    result: response,
+                    source: data.source
                 }));
             } catch (e) {
                 console.warn('Cache write error', e);
             }
 
             if (user && profile?.notificationPreferences?.weatherAlerts !== false) {
-                await sendWeatherAlert(user.uid, locationText || 'Pakistan', response.alert, 'medium');
+                await sendWeatherAlert(user.uid, locationText || 'Pakistan', response.alert, 'medium').catch(console.warn);
             }
             
             // Set cooldown to prevent rapid repeated calls
@@ -328,7 +326,8 @@ export default function WeatherAlertCard() {
             </CardContent>
 
             {!profile && (
-                <CardFooter className="pt-6">
+                <CardFooter className="pt-6 flex-col gap-3">
+                    {weatherSource === 'Open-Meteo' && <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="text-xs text-muted-foreground">Weather data by Open-Meteo</a>}
                     <AccessibleButton
                         variant="secondary"
                         className="w-full sm:w-auto hover:bg-primary/10 hover:border-primary transition-all duration-300"

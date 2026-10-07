@@ -1,70 +1,59 @@
 import { NextResponse } from 'next/server';
 
-const OWM_KEY = process.env.OPENWEATHERMAP_API_KEY;
+const validCoordinate = (value: unknown, maximum: number): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= maximum;
 
-async function geocode(location: string) {
-  if (!OWM_KEY) return null;
-  const url = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${OWM_KEY}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || !data[0]) return null;
-    return { lat: data[0].lat, lon: data[0].lon, name: data[0].name };
-  } catch (e) {
-    console.error('Geocoding fetch error:', e);
-    return null;
-  }
-}
-
-async function fetchWeatherByLatLon(lat: number, lon: number) {
-  if (!OWM_KEY) return null;
-  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    console.error('Weather fetch error:', e);
-    return null;
-  }
+async function fetchJson(url: string) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 600 } });
+  if (!response.ok) throw new Error(`Weather provider returned ${response.status}`);
+  return response.json();
 }
 
 export async function POST(req: Request) {
+  let body;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ ok: false, message: 'Invalid request.' }, { status: 400 }); }
+  if (!body || typeof body !== 'object') return NextResponse.json({ ok: false, message: 'Invalid request.' }, { status: 400 });
+  let { lat, lon } = body;
+  const location = typeof body.location === 'string' ? body.location.trim() : '';
+  if ((lat != null || lon != null) && (!validCoordinate(lat, 90) || !validCoordinate(lon, 180))) {
+    return NextResponse.json({ ok: false, message: 'Invalid coordinates.' }, { status: 400 });
+  }
+  if (lat == null && !location) {
+    return NextResponse.json({ ok: false, message: 'Add your city in Profile to get local weather.' }, { status: 400 });
+  }
   try {
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch (e) {
-      // Ignore JSON parse errors, treat as empty body
+    const key = process.env.OPENWEATHERMAP_API_KEY;
+    if (lat == null) {
+      if (key) {
+        try {
+          const places = await fetchJson(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${key}`);
+          if (places[0]) ({ lat, lon } = places[0]);
+        } catch { /* Resolve with the key-free provider below. */ }
+      }
+      if (lat == null) {
+        const city = location.split(',')[0].trim();
+        const places = await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=10&language=en&format=json`);
+        const place = places.results?.find((item: { country_code: string }) => item.country_code === 'PK') || places.results?.[0];
+        if (!place) return NextResponse.json({ ok: false, message: 'City not found. Update your location in Profile.' }, { status: 404 });
+        lat = place.latitude;
+        lon = place.longitude;
+      }
     }
-    const { location, lat, lon } = body as { location?: string; lat?: number; lon?: number };
-
-    let coords = { lat, lon };
-    if ((!lat || !lon) && location) {
-      const g = await geocode(location);
-      if (g) coords = { lat: g.lat, lon: g.lon };
+    if (key) {
+      try {
+        const w = await fetchJson(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${key}&units=metric`);
+        if (typeof w.main?.temp !== 'number') throw new Error('Missing weather readings');
+        const weatherConditions = `${w.weather?.[0]?.description || 'Current weather'}; Temp ${w.main.temp}°C; Humidity ${w.main.humidity}%; Wind ${w.wind?.speed} m/s`;
+        return NextResponse.json({ ok: true, weatherConditions, lat, lon, source: 'OpenWeather', raw: w });
+      } catch { /* Keep weather available when an optional API key fails. */ }
     }
-
-    if (!coords?.lat || !coords?.lon) {
-      // no coordinates available
-      return NextResponse.json({ ok: true, weatherConditions: null, message: 'No coordinates available' }, { status: 200 });
-    }
-
-    const w = await fetchWeatherByLatLon(coords.lat as number, coords.lon as number);
-    if (!w) return NextResponse.json({ ok: false, message: 'Failed to fetch weather' }, { status: 502 });
-
-    const parts: string[] = [];
-    if (w.weather && w.weather[0]) parts.push(`${w.weather[0].main}: ${w.weather[0].description}`);
-    if (typeof w.main?.temp === 'number') parts.push(`Temp ${w.main.temp}°C`);
-    if (typeof w.main?.humidity === 'number') parts.push(`Humidity ${w.main.humidity}%`);
-    if (typeof w.wind?.speed === 'number') parts.push(`Wind ${w.wind.speed} m/s`);
-    if (w.rain && w.rain['1h']) parts.push(`Rain (1h) ${w.rain['1h']} mm`);
-
-    const weatherConditions = parts.join('; ');
-
-    return NextResponse.json({ ok: true, weatherConditions, lat: coords.lat, lon: coords.lon, raw: w }, { status: 200 });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, message: err?.message || String(err) }, { status: 500 });
+    const w = await fetchJson(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=1`);
+    const c = w.current;
+    if (!c || typeof c.temperature_2m !== 'number') throw new Error('Missing weather readings');
+    const weatherConditions = `Temp ${c.temperature_2m}°C; Humidity ${c.relative_humidity_2m}%; Wind ${c.wind_speed_10m} m/s; Precipitation ${c.precipitation} mm; WMO weather code ${c.weather_code}; Observed ${c.time} (${w.timezone})`;
+    return NextResponse.json({ ok: true, weatherConditions, lat, lon, source: 'Open-Meteo', raw: w });
+  } catch {
+    return NextResponse.json({ ok: false, message: 'Current weather is temporarily unavailable. Please try again.' }, { status: 502 });
   }
 }

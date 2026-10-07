@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Image from 'next/image';
 import { Upload, X, MapPin, Sparkles, Shield, Leaf, AlertTriangle } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { instantDiagnosisFromImageAndSymptoms } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
+import { diagnoseCrop } from '@/lib/actions/diagnosis-actions';
 
 import LoadingSpinner from './loading-spinner';
 import DiagnosisCard from './diagnosis-card';
@@ -220,7 +220,7 @@ export default function NewReportForm() {
             console.log("Starting optimized report creation...");
             const [newReportId, imageThumb, analysisBlob] = await Promise.all([
                 createReport(user.uid, {
-                    crop: profile?.crops?.[0] || 'Crop to be identified',
+                    crop: selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : (profile?.crops?.[0] || 'Crop to be identified'),
                     symptoms,
                     status: 'Processing',
                     ...(selectedField !== 'none' && selectedField ? { fieldId: selectedField } : {}),
@@ -232,7 +232,7 @@ export default function NewReportForm() {
             console.log("Phase 1 complete — Report ID:", reportId);
 
             // Fire-and-forget: persist thumbnail and log (non-blocking)
-            updateReport(user.uid, reportId, { imageThumb } as any).catch(e => console.warn('Thumbnail update delayed:', e));
+            await updateReport(user.uid, reportId, { imageThumb } as any);
             createLog({ agentName: 'ingestAgent', action: 'report_created', reportId, status: 'success' });
 
             // Set report state for the loading UI
@@ -247,12 +247,14 @@ export default function NewReportForm() {
 
             createLog({ agentName: 'diagnosticAgent', action: 'diagnosis_started', reportId, status: 'info' });
 
-            const diagnosis = await instantDiagnosisFromImageAndSymptoms({
+            const diagnosisResult = await diagnoseCrop({
                 photoDataUri,
                 symptoms,
                 crop: cropToAnalyze,
                 language: profile?.language || 'english'
             });
+            if (!diagnosisResult.ok) throw new Error(diagnosisResult.error);
+            const diagnosis = diagnosisResult.diagnosis;
 
             console.log(`✅ Diagnosis completed: ${diagnosis.disease}, confidence: ${diagnosis.confidence}%`);
 
@@ -315,14 +317,14 @@ export default function NewReportForm() {
 
         } catch (error: any) {
             console.error("Report generation error:", error);
-            const actualError = error?.message ? ` (${error.message})` : '';
+            const actualError = error?.message || 'Report generation failed. Please try again.';
 
             if (reportId) {
                 updateReport(user.uid, reportId, { status: 'Pending' } as any).catch(e => console.warn('Failed to mark report Pending:', e));
                 createLog({ agentName: 'diagnosticAgent', action: 'diagnosis_failed', reportId, status: 'error', duration: Date.now() - startTime, payload: { error: error?.message || String(error) } });
             }
 
-            setError(`AI service is temporarily unavailable${actualError}. We've saved your report and will retry diagnosis. Please check back in a few minutes or try again.`);
+            setError(`${actualError}${reportId ? ' Check Report History before retrying.' : ''}`);
             setLoadingState('idle');
         }
     };

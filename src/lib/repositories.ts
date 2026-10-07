@@ -26,21 +26,20 @@ async function readWithTimeout<T>(read: Promise<T>, operation: string): Promise<
     }
 }
 
-async function writeWithTimeout<T>(write: Promise<T>, operation: string): Promise<T | undefined> {
+async function writeWithTimeout<T>(write: Promise<T>, operation: string): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
         return await Promise.race([
             write,
-            new Promise<undefined>(resolve => {
+            new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
-                    console.warn(`${operation} timed out after ${FIRESTORE_WRITE_TIMEOUT_MS}ms`);
-                    resolve(undefined);
+                    reject(new Error(`${operation} could not be confirmed. Check your connection and refresh before retrying.`));
                 }, FIRESTORE_WRITE_TIMEOUT_MS);
             }),
         ]);
     } catch (error) {
-        console.warn(`${operation} failed; continuing without blocking the report:`, error);
-        return undefined;
+        console.warn(`${operation} failed:`, error);
+        throw error;
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
     }

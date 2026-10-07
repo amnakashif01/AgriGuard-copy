@@ -49,9 +49,9 @@ export async function fetchRealSuppliersFromGooglePlaces(
   radiusMeters: number = 50000, // 50km default
   customQuery?: string
 ): Promise<Supplier[]> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
   
-  console.log('🔑 Google Places API Key configured:', apiKey ? `Yes (${apiKey.substring(0, 10)}...)` : 'No');
+  console.log('🔑 Google Places API Key configured:', apiKey ? 'Yes' : 'No');
   
   if (!apiKey || apiKey === 'your_google_places_api_key_here') {
     console.warn('⚠️ Google Places API key not configured. Using fallback method.');
@@ -71,7 +71,8 @@ export async function fetchRealSuppliersFromGooglePlaces(
       
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/place/nearbysearch/json?` +
-        `location=${lat},${lng}&radius=${radiusMeters}&keyword=${encodeURIComponent(keyword)}&key=${apiKey}`
+        `location=${lat},${lng}&radius=${radiusMeters}&keyword=${encodeURIComponent(keyword)}&key=${apiKey}`,
+        { signal: AbortSignal.timeout(8000) }
       );
 
       const data = await response.json();
@@ -90,7 +91,8 @@ export async function fetchRealSuppliersFromGooglePlaces(
           // Get detailed information
           const detailsResponse = await fetch(
             `https://maps.googleapis.com/maps/api/place/details/json?` +
-            `place_id=${place.place_id}&fields=name,formatted_address,geometry,rating,formatted_phone_number,international_phone_number,website,types,business_status&key=${apiKey}`
+            `place_id=${place.place_id}&fields=name,formatted_address,geometry,rating,formatted_phone_number,international_phone_number,website,types,business_status&key=${apiKey}`,
+            { signal: AbortSignal.timeout(8000) }
           );
 
           const detailsData = await detailsResponse.json();
@@ -147,10 +149,11 @@ export async function fetchRealSuppliersFromOpenStreetMap(
     // Overpass API query for agricultural shops, stores, and related businesses
     // Note: OSM doesn't easily support free-text keyword search across all tags efficiently in this basic form,
     // so we still query agricultural shops but we'll rely on the frontend filtering for the specific customQuery if needed.
-    const overpassQuery = `[out:json][timeout:25];(node["shop"="agrarian"](around:${radiusMeters},${lat},${lng});node["shop"="farm"](around:${radiusMeters},${lat},${lng});node["shop"="garden_centre"](around:${radiusMeters},${lat},${lng});way["shop"="agrarian"](around:${radiusMeters},${lat},${lng});way["shop"="farm"](around:${radiusMeters},${lat},${lng});way["shop"="garden_centre"](around:${radiusMeters},${lat},${lng}););out body;>;out skel qt;`;
+    const overpassQuery = `[out:json][timeout:8];(node["shop"="agrarian"](around:${radiusMeters},${lat},${lng});node["shop"="farm"](around:${radiusMeters},${lat},${lng});node["shop"="garden_centre"](around:${radiusMeters},${lat},${lng});way["shop"="agrarian"](around:${radiusMeters},${lat},${lng});way["shop"="farm"](around:${radiusMeters},${lat},${lng});way["shop"="garden_centre"](around:${radiusMeters},${lat},${lng}););out center tags;`;
 
     const response = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
+      signal: AbortSignal.timeout(10000),
       body: `data=${encodeURIComponent(overpassQuery)}`,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -174,7 +177,7 @@ export async function fetchRealSuppliersFromOpenStreetMap(
     if (data.elements && data.elements.length > 0) {
       console.log(`✅ OpenStreetMap found ${data.elements.length} suppliers`);
       let suppliers = data.elements
-        .filter((element: any) => element.tags && element.tags.name)
+        .filter((element: any) => element.tags?.name && Number.isFinite(element.lat ?? element.center?.lat) && Number.isFinite(element.lon ?? element.center?.lon))
         .map((element: any) => convertOSMElementToSupplier(element, lat, lng, customQuery));
         
       if (customQuery && customQuery.trim() !== '') {
@@ -260,7 +263,6 @@ function convertPlaceToSupplier(place: PlaceResult, userLat: number, userLng: nu
     services: ['Retail Sales', 'Customer Support'],
     contact: {
       phone: place.formatted_phone_number || place.international_phone_number || 'Not available',
-      ...(place.website && { email: `info@${new URL(place.website).hostname}` }),
       ...(place.international_phone_number && { whatsapp: place.international_phone_number })
     },
     rating: place.rating || 0,
@@ -281,8 +283,8 @@ function convertPlaceToSupplier(place: PlaceResult, userLat: number, userLng: nu
  */
 function convertOSMElementToSupplier(element: any, userLat: number, userLng: number, customQuery?: string): Supplier {
   const tags = element.tags;
-  const lat = element.lat || element.center?.lat;
-  const lng = element.lon || element.center?.lon;
+  const lat = element.lat ?? element.center?.lat;
+  const lng = element.lon ?? element.center?.lon;
 
   // Calculate distance from user
   const distance = calculateHaversineDistance(userLat, userLng, lat, lng);
@@ -310,8 +312,7 @@ function convertOSMElementToSupplier(element: any, userLat: number, userLng: num
     services: ['Retail Sales'],
     contact: {
       phone: tags.phone || tags['contact:phone'] || 'Not available',
-      ...(tags.email && { email: tags.email }),
-      ...(tags.website && { email: `info@${new URL(tags.website).hostname}` })
+      ...(tags.email && { email: tags.email })
     },
     rating: 0,
     availability: 'available',
