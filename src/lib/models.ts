@@ -116,6 +116,13 @@ export type DiagnosisReport = {
   };
   expertReviewRequired?: boolean;
   fieldId?: string;
+  cropId?: string;
+  plantId?: string;
+  plantName?: string;
+  plantRecordId?: string;
+  age?: string;
+  severityScore?: number | null;
+  severityExplanation?: string;
   createdAt: any; // ISO string
   updatedAt: any; // ISO string
 };

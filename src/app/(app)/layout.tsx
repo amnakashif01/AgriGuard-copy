@@ -2,7 +2,7 @@
 'use client';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Leaf, LayoutDashboard, PlusCircle, ShoppingCart, User, Shield, LogOut, Bell, Settings, ChevronDown } from "lucide-react";
+import { Leaf, Sprout, LayoutDashboard, PlusCircle, ShoppingCart, User, Shield, LogOut, Bell, Settings, ChevronDown } from "lucide-react";
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             return [{ label: t('nav.dashboard'), href: '/dashboard' }];
         }
 
+        if (pathname.startsWith('/my-crops')) {
+            return [...breadcrumbs, { label: t('nav.my_crops'), href: '/my-crops' }];
+        }
+
         let currentPath = '';
         pathSegments.forEach((segment, index) => {
             currentPath += `/${segment}`;
@@ -105,6 +109,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // Only show Admin tab to admin phone numbers
     const menuItems = [
         { href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+        { href: '/my-crops', label: t('nav.my_crops'), icon: Sprout },
         { href: '/report/new', label: t('nav.new_report'), icon: PlusCircle },
         { href: '/marketplace', label: t('nav.marketplace'), icon: ShoppingCart },
         { href: '/profile', label: t('nav.profile'), icon: User },
@@ -130,7 +135,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarContent className="px-3">
                     <SidebarMenu className="space-y-3">
                         {menuItems.map((item) => {
-                            const isActive = pathname === item.href;
+                            const isActive = pathname === item.href || (item.href === '/my-crops' && pathname.startsWith('/my-crops/'));
                             // Only show Admin to admin users, assume true for now, can implement real check
                             return (
                                 <SidebarMenuItem key={item.href}>
