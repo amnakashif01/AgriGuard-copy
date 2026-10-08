@@ -26,8 +26,8 @@ export function useCropData<T extends { id: string }>(path: string | null, many 
   return state.key === key ? state : { data: [] as T[], loading: true, error: '' };
 }
 
-export function CropFrame({ title, eyebrow = 'YOUR FARM', subtitle, back, children }: { title: string; eyebrow?: string; subtitle?: string; back?: { href: string; label: string }; children: ReactNode }) {
-  return <section className="mx-auto w-full max-w-3xl rounded-[2rem] border border-emerald-100/70 bg-[#f6f8f2] p-5 shadow-sm sm:p-8">
+export function CropFrame({ title, eyebrow = 'YOUR FARM', subtitle, back, children, wide = false }: { title: string; eyebrow?: string; subtitle?: string; back?: { href: string; label: string }; children: ReactNode; wide?: boolean }) {
+  return <section className={`mx-auto min-w-0 w-full border border-emerald-100/70 bg-[#f6f8f2] shadow-sm ${wide ? 'max-w-[1440px] rounded-2xl p-2 sm:rounded-[2rem] sm:p-5 xl:p-6' : 'max-w-3xl rounded-[2rem] p-5 sm:p-8'}`}>
     {back && <Link href={back.href} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-emerald-800 hover:underline"><ArrowLeft className="h-4 w-4" />{back.label}</Link>}
     <header className="mb-8 flex items-start justify-between gap-4">
       <div className="min-w-0"><p className="mb-2 text-xs font-semibold tracking-[0.18em] text-emerald-700">{eyebrow}</p><h1 className="break-words font-headline text-3xl font-bold tracking-tight text-[#183d2b] sm:text-4xl">{title}</h1>{subtitle && <p className="mt-3 text-sm leading-6 text-slate-600">{subtitle}</p>}</div>

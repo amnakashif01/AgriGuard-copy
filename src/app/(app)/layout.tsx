@@ -178,9 +178,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
             </Sidebar>
             <SidebarInset>
-                <header className="sticky top-0 z-50 flex items-center justify-between border-b border-gray-100/80 bg-white/75 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/60 px-6 py-4 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <SidebarTrigger className="md:hidden" />
+                <header className="sticky top-0 z-50 flex items-center justify-between border-b border-gray-100/80 bg-white/75 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/60 px-3 py-3 shadow-sm sm:px-6 sm:py-4">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                        <SidebarTrigger className="h-11 w-11 md:hidden" />
                         <Breadcrumb>
                             <BreadcrumbList>
                                 {breadcrumbs.map((breadcrumb, index) => (
@@ -251,7 +251,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </header>
                 <main 
                     id="main-content"
-                    className="flex-1 p-4 sm:p-6 lg:p-8 min-h-screen focus:outline-none page-transition"
+                    className={`min-w-0 flex-1 min-h-screen focus:outline-none page-transition ${pathname.startsWith('/my-crops/') ? 'p-3 sm:p-5 lg:p-6' : 'p-4 sm:p-6 lg:p-8'}`}
                     style={{
                         background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 25%, #f0fdf4 50%, #f8fafc 75%, #ecfdf5 100%)',
                     }}

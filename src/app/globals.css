@@ -24,6 +24,14 @@
     --input: 158 20% 88%;
     --ring: 158 81% 45%;
     --radius: 0.5rem;
+    --sidebar-background: 140 60% 98%;
+    --sidebar-foreground: 155 35% 18%;
+    --sidebar-primary: 158 64% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 143 65% 93%;
+    --sidebar-accent-foreground: 155 45% 22%;
+    --sidebar-border: 145 30% 88%;
+    --sidebar-ring: 158 64% 40%;
   }
   .dark {
     --background: 224 71% 4%;
@@ -45,6 +53,14 @@
     --border: 224 71% 10%;
     --input: 224 71% 10%;
     --ring: 158 81% 45%;
+    --sidebar-background: 224 30% 10%;
+    --sidebar-foreground: 140 20% 95%;
+    --sidebar-primary: 158 64% 45%;
+    --sidebar-primary-foreground: 158 20% 5%;
+    --sidebar-accent: 155 25% 18%;
+    --sidebar-accent-foreground: 140 20% 95%;
+    --sidebar-border: 155 20% 22%;
+    --sidebar-ring: 158 64% 45%;
   }
 }
 
@@ -243,5 +259,25 @@
   /* Smooth page transition */
   .page-transition {
     animation: fadeInUp 0.4s ease-out;
+  }
+}
+
+/* Responsive plant comparison; minimum widths protect readable cards. */
+.crop-comparison-track {
+  /* Keep a readable card and a hint of the next one on narrow phones. */
+  --comparison-card-min: min(17.5rem, calc(100vw - 5.25rem));
+  width: 100%;
+  min-width: calc(var(--comparison-count) * var(--comparison-card-min) + (var(--comparison-count) - 1) * 1rem);
+}
+
+.crop-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--comparison-count), minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .crop-comparison-track {
+    --comparison-card-min: 16rem;
   }
 }

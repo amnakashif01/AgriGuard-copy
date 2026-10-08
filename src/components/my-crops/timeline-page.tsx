@@ -55,7 +55,7 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
     catch (error) { setRetryError(error instanceof Error ? error.message : 'The severity estimate is unavailable. Your report is still saved.'); }
     finally { setBusyId(''); }
   }
-  return <CropFrame title={crop ? `${crop.name} Health Records` : 'Health Records'} eyebrow="PLANT TIMELINE" subtitle={plant ? `${plant.name} · ${plant.code}` : undefined} back={{ href: `/my-crops/${cropId}`, label: crop?.name || 'Back to crop' }}>
+  return <CropFrame wide title={crop ? `${crop.name} Health Records` : 'Health Records'} eyebrow="PLANT TIMELINE" subtitle={plant ? `${plant.name} · ${plant.code}` : undefined} back={{ href: `/my-crops/${cropId}`, label: crop?.name || 'Back to crop' }}>
     <LoadState loading={loading} error={error} missing={!loading && (!crop || !plant)} />
     {!loading && !error && crop && plant && <div>
       <p className="mb-7 text-xs leading-5 text-slate-500">Every photo and analysis stays in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
