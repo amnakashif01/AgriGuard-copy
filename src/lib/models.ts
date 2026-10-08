@@ -67,6 +67,7 @@ export type ReportHistoryEntry = {
 };
 
 export type DiagnosisReport = {
+  cropEvidence?: import('./crop-detector').CropEvidence;
   modelAssessment?: import('./plant-model').PlantModelAssessment;
   inference?: {
     provider: 'agrichat'; model: string; revision: string;

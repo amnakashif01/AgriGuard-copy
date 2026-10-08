@@ -29,6 +29,7 @@ import { findTrackedPreviousReport, isPlanEligible, isTrackedPlantReport } from 
 import { needsHighlightReview } from "@/lib/report-utils";
 import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import SuppliersCard from "@/components/agrisahayak/suppliers-card";
+import CropModelEvidence from '@/components/agrisahayak/crop-model-evidence';
 import PlantModelAssessment from '@/components/agrisahayak/plant-model-assessment';
 
 /** Safely parse any timestamp to a readable string */
@@ -260,12 +261,15 @@ export default function ReportDetailPage() {
                 crop: diagnosis.crop,
                 disease: diagnosis.disease,
                 confidence: diagnosis.confidence,
+                severityScore: diagnosis.severityScore ?? null,
+                severityExplanation: diagnosis.severityExplanation || '',
                 affectedParts: diagnosis.affectedParts,
                 severity: diagnosis.severity,
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
                 inference: diagnosis.inference || deleteField(),
                 modelAssessment: diagnosis.modelAssessment || deleteField(),
+                cropEvidence: diagnosis.cropEvidence || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
@@ -329,12 +333,15 @@ export default function ReportDetailPage() {
                 crop: diagnosis.crop,
                 disease: diagnosis.disease,
                 confidence: diagnosis.confidence,
+                severityScore: diagnosis.severityScore ?? null,
+                severityExplanation: diagnosis.severityExplanation || '',
                 affectedParts: diagnosis.affectedParts,
                 severity: diagnosis.severity,
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
                 inference: diagnosis.inference || deleteField(),
                 modelAssessment: diagnosis.modelAssessment || deleteField(),
+                cropEvidence: diagnosis.cropEvidence || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
@@ -523,7 +530,7 @@ export default function ReportDetailPage() {
                 </CardHeader>
             </Card>
 
-            {report.modelAssessment && <PlantModelAssessment assessment={report.modelAssessment} />}
+            {report.cropEvidence ? <CropModelEvidence evidence={report.cropEvidence} imageUrl={report.imageUrl} /> : report.modelAssessment ? <PlantModelAssessment assessment={report.modelAssessment} /> : null}
 
             {/* Direct Inline Comparison / Trend Analysis */}
             {isTrackedPlantReport(report) && previousReport && (
@@ -639,7 +646,7 @@ export default function ReportDetailPage() {
                             )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm text-muted-foreground">{t('report.confidence_score')}</p>
+                                    <p className="text-sm text-muted-foreground">{report.cropEvidence?.route === 'model_assisted' ? 'Detector score' : t('report.confidence_score')}</p>
                                     <p className={`text-2xl font-bold ${getConfidenceColor(report.confidence)}`}>
                                         {report.confidence}%
                                     </p>

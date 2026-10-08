@@ -1,0 +1,308 @@
+[
+  {
+    "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___Early_blight/0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B%208389.JPG",
+    "dataset": "PlantVillage",
+    "expectedLabel": "Tomato with Early Blight",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 1814,
+    "detections": [
+      {
+        "classId": 19,
+        "label": "Tomato Septoria leaf spot",
+        "score": 30.41,
+        "box": [
+          0,
+          5,
+          999,
+          1000
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___healthy/000146ff-92a4-4db6-90ad-8fce2ae4fddd___GH_HL%20Leaf%20259.1.JPG",
+    "dataset": "PlantVillage",
+    "expectedLabel": "Healthy Tomato Plant",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 1112,
+    "detections": [
+      {
+        "classId": 0,
+        "label": "Apple Scab Leaf",
+        "score": 21.81,
+        "box": [
+          3,
+          16,
+          945,
+          946
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Corn_(maize)___Common_rust_/RS_Rust%201563.JPG",
+    "dataset": "PlantVillage",
+    "expectedLabel": "Corn (Maize) with Common Rust",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 832,
+    "detections": [
+      {
+        "classId": 22,
+        "label": "Tomato leaf late blight",
+        "score": 24.99,
+        "box": [
+          5,
+          5,
+          998,
+          892
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Potato___Late_blight/0051e5e8-d1c4-4a84-bf3a-a426cdad6285___RS_LB%204640.JPG",
+    "dataset": "PlantVillage",
+    "expectedLabel": "Potato with Late Blight",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 804,
+    "detections": [
+      {
+        "classId": 12,
+        "label": "Potato leaf early blight",
+        "score": 49.1,
+        "box": [
+          141,
+          63,
+          962,
+          856
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20Early%20blight%20leaf/039b47d574bc4bb8a14259a1cd96a741.jpg",
+    "dataset": "PlantDoc test",
+    "expectedLabel": "Tomato with Early Blight",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 788,
+    "detections": [
+      {
+        "classId": 18,
+        "label": "Tomato Early blight leaf",
+        "score": 65.83,
+        "box": [
+          421,
+          507,
+          822,
+          951
+        ]
+      },
+      {
+        "classId": 8,
+        "label": "Corn leaf blight",
+        "score": 56.82,
+        "box": [
+          438,
+          154,
+          795,
+          214
+        ]
+      },
+      {
+        "classId": 8,
+        "label": "Corn leaf blight",
+        "score": 30.16,
+        "box": [
+          345,
+          247,
+          573,
+          314
+        ]
+      },
+      {
+        "classId": 8,
+        "label": "Corn leaf blight",
+        "score": 20.71,
+        "box": [
+          426,
+          182,
+          818,
+          287
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Corn%20rust%20leaf/0796.39maizerust.jpg",
+    "dataset": "PlantDoc test",
+    "expectedLabel": "Corn (Maize) with Common Rust",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 906,
+    "detections": [
+      {
+        "classId": 9,
+        "label": "Corn rust leaf",
+        "score": 90.19,
+        "box": [
+          1,
+          84,
+          1000,
+          984
+        ]
+      }
+    ],
+    "initialRoute": "model_assisted"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Potato%20leaf%20late%20blight/1421_0.jpeg%3Fitok%3DFMtmgePj.jpg",
+    "dataset": "PlantDoc test",
+    "expectedLabel": "Potato with Late Blight",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 928,
+    "detections": [
+      {
+        "classId": 12,
+        "label": "Potato leaf early blight",
+        "score": 96.68,
+        "box": [
+          74,
+          9,
+          960,
+          998
+        ]
+      }
+    ],
+    "initialRoute": "model_assisted"
+  },
+  {
+    "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20leaf/1684.jpg",
+    "dataset": "PlantDoc test",
+    "expectedLabel": "Healthy Tomato Plant",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 800,
+    "detections": [
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 88,
+        "box": [
+          235,
+          553,
+          678,
+          972
+        ]
+      },
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 85.18,
+        "box": [
+          0,
+          273,
+          552,
+          650
+        ]
+      },
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 84.15,
+        "box": [
+          734,
+          586,
+          984,
+          1000
+        ]
+      },
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 81.8,
+        "box": [
+          377,
+          32,
+          701,
+          565
+        ]
+      },
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 75.62,
+        "box": [
+          738,
+          4,
+          986,
+          519
+        ]
+      },
+      {
+        "classId": 20,
+        "label": "Tomato leaf",
+        "score": 38.91,
+        "box": [
+          948,
+          515,
+          1000,
+          850
+        ]
+      }
+    ],
+    "initialRoute": "model_assisted"
+  },
+  {
+    "source": "Private or generated regression fixture; image not distributed",
+    "dataset": "User regression; Gemini label is not independently verified ground truth",
+    "expectedLabel": "Unsupported: Fall Armyworm",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 831,
+    "detections": [
+      {
+        "classId": 8,
+        "label": "Corn leaf blight",
+        "score": 27.41,
+        "box": [
+          1,
+          220,
+          932,
+          623
+        ]
+      }
+    ],
+    "initialRoute": "gemini_fallback"
+  },
+  {
+    "source": "Private or generated regression fixture; image not distributed",
+    "dataset": "Negative control",
+    "expectedLabel": "No plant",
+    "model": "YOLO11m PlantDoc",
+    "revision": "8dce599ce0122b304b1fff3cb0d58c90e1f44805",
+    "status": "detected",
+    "elapsedMs": 765,
+    "detections": [],
+    "initialRoute": "gemini_fallback"
+  }
+]
