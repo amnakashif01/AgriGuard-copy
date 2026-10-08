@@ -9,7 +9,10 @@ export async function diagnoseCrop(input: InstantDiagnosisFromImageAndSymptomsIn
   } catch (error) {
     const message = (error instanceof Error ? error.message : '').toLowerCase();
     let reason = 'Crop analysis is temporarily unavailable. Please try again.';
-    if (/abort|timeout|timed.out|longer than expected/.test(message)) {
+    if (message.startsWith('agrichat') || message.startsWith('crop diagnosis provider')) {
+      // These are fixed, safe messages created by our adapter, not raw provider bodies.
+      reason = error instanceof Error ? error.message : reason;
+    } else if (/abort|timeout|timed.out|longer than expected/.test(message)) {
       reason = 'AI analysis is taking longer than expected. Your saved record is safe; please retry.';
     } else if (/api key|api_key|unauthenticated|permission.denied/.test(message)) {
       reason = 'AI diagnosis is not configured correctly. The site owner must update the Gemini API key in Vercel.';

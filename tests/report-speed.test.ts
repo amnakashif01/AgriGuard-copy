@@ -25,6 +25,7 @@ test('diagnosis, plans, severity and markers use one model call; rate limits fai
       if (quota) return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded' } }, { status: 429 });
       const body = JSON.parse(String(options?.body));
       assert.ok(body.generationConfig.responseSchema.required.includes('severityScore'));
+      assert.ok(!body.generationConfig.responseSchema.properties.inference, 'Gemini must not fabricate AgriChat provenance');
       return Response.json({ candidates: [{ index: 0, content: { role: 'model', parts: [{ text: JSON.stringify(diagnosis) }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 10, totalTokenCount: 20 } });
     }
     return Response.json({ name: 'models/gemini-3.5-flash-lite', displayName: 'Test model', inputTokenLimit: 100000, outputTokenLimit: 8000, supportedGenerationMethods: ['generateContent'] });

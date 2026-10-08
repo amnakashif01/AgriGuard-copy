@@ -278,6 +278,7 @@ export default function NewReportForm() {
                 ...(planEligible && diagnosis.plan ? { plan: diagnosis.plan } : {}),
                 ...(planEligible && diagnosis.protectionPlan ? { protectionPlan: diagnosis.protectionPlan } : {}),
                 visualHighlights: diagnosis.visualHighlights,
+                ...(diagnosis.inference ? { inference: diagnosis.inference } : {}),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
