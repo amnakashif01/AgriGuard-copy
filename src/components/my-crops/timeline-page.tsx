@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { type MyCrop, type MyPlant, type PlantRecord } from '@/lib/my-crops/models';
 import { analyzeSavedPlantRecord, recoverSavedSeverity } from '@/lib/my-crops/analyze-record';
 import { RecordSummary } from './record-summary';
+import { PlantProgressComparison, RecordChange } from './record-comparison';
+import { completedPlantRecords } from '@/lib/my-crops/record-comparison';
 import { CropFrame, ErrorNotice, greenButton, LoadState, useCropData } from './shared';
 
 function RecordDetails({ record }: { record: PlantRecord }) {
@@ -37,6 +39,8 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
   const crop = crops.data[0], plant = plants.data[0];
   const loading = crops.loading || plants.loading || records.loading;
   const error = crops.error || plants.error || records.error;
+  const completeRecords = completedPlantRecords(records.data, cropId, plantId);
+  const previousRecords = new Map(completeRecords.map((record, index) => [record.id, completeRecords[index - 1]]));
   async function retry(record: PlantRecord) {
     if (!user || busyId) return;
     setBusyId(record.id); setRetryError('');
@@ -56,6 +60,7 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
     {!loading && !error && crop && plant && <div>
       <p className="mb-7 text-xs leading-5 text-slate-500">Every photo and analysis stays in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
       {retryError && <ErrorNotice message={retryError} />}
+      <PlantProgressComparison key={`${cropId}/${plantId}`} records={records.data} cropId={cropId} plantId={plantId} />
       <div className="space-y-6 border-s-2 border-emerald-200 ps-5 sm:ps-7">
         {records.data.map((record, index) => <article key={record.id}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="relative text-base font-semibold text-emerald-950"><span aria-hidden="true" className="absolute -start-[27px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-[#f6f8f2] bg-emerald-600 sm:-start-[35px]" />{record.age}</h2><span className="flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />{new Date(record.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · Record {index + 1}</span></div>
@@ -63,6 +68,7 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center"><img src={record.imageThumb} alt={`${plant.name}, ${record.age}, record ${index + 1}`} className="h-44 w-full rounded-2xl bg-emerald-50 object-cover sm:h-32 sm:w-32" />
               {record.status === 'Complete' ? <RecordSummary record={record} busy={Boolean(busyId)} retrying={busyId === record.id} onRetrySeverity={() => retrySeverity(record)} /> : <div className="min-w-0 flex-1"><h3 className="font-semibold text-emerald-950">{busyId === record.id ? 'Analyzing your plant…' : record.status === 'Error' ? 'Analysis needs a retry' : 'Analysis not yet completed'}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{record.error || 'Your photo and record are saved. If the earlier analysis was interrupted, you can retry here.'}</p><Button type="button" variant="outline" disabled={Boolean(busyId)} onClick={() => retry(record)} className="mt-4 rounded-xl">{busyId === record.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}{busyId === record.id ? 'Analyzing…' : 'Retry analysis'}</Button></div>}
             </div>
+            {record.status === 'Complete' && <RecordChange current={record} previous={previousRecords.get(record.id)} />}
             <RecordDetails record={record} />
           </div>
         </article>)}
