@@ -220,7 +220,7 @@ export default function NewReportForm() {
             console.log("Starting optimized report creation...");
             const [newReportId, imageThumb, analysisBlob] = await Promise.all([
                 createReport(user.uid, {
-                    crop: selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : (profile?.crops?.[0] || 'Crop to be identified'),
+                    crop: selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : 'Crop to be identified',
                     symptoms,
                     status: 'Processing',
                     ...(selectedField !== 'none' && selectedField ? { fieldId: selectedField } : {}),
@@ -243,7 +243,7 @@ export default function NewReportForm() {
             console.log("Phase 2 — Starting AI diagnosis...");
 
             const photoDataUri = await blobToDataUri(analysisBlob);
-            const cropToAnalyze = selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : (profile?.crops?.[0] || 'Unknown Crop');
+            const cropToAnalyze = selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : 'Unknown Crop';
 
             createLog({ agentName: 'diagnosticAgent', action: 'diagnosis_started', reportId, status: 'info' });
 

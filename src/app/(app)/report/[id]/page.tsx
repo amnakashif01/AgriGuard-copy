@@ -530,7 +530,7 @@ export default function ReportDetailPage() {
                 </CardHeader>
             </Card>
 
-            {report.cropEvidence ? <CropModelEvidence evidence={report.cropEvidence} imageUrl={report.imageUrl} /> : report.modelAssessment ? <PlantModelAssessment assessment={report.modelAssessment} /> : null}
+            {report.cropEvidence ? <CropModelEvidence evidence={report.cropEvidence} imageUrl={report.imageUrl || report.imageThumb} /> : report.modelAssessment ? <PlantModelAssessment assessment={report.modelAssessment} /> : null}
 
             {/* Direct Inline Comparison / Trend Analysis */}
             {isTrackedPlantReport(report) && previousReport && (
