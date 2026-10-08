@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { comparePlantRecords, completedPlantRecords } from '../src/lib/my-crops/record-comparison';
-import { PlantProgressComparison, RecordChange } from '../src/components/my-crops/record-comparison';
+import { PlantProgressComparison, RecordChange, PairComparisonDetails } from '../src/components/my-crops/record-comparison';
+import { plantComparisonHistory, resolveComparisonPair } from '../src/lib/my-crops/comparison-history';
 import type { PlantRecord } from '../src/lib/my-crops/models';
 
 function record(id: string, day: number, score: number | null, disease = 'Early blight', overrides: Partial<PlantRecord> = {}): PlantRecord {
@@ -114,7 +115,9 @@ test('defaults to the previous completed test and offers older history, report l
   assert.match(html, /href="\/report\/b"/); assert.match(html, /href="\/report\/c"/);
   assert.match(html, /aria-valuenow="50"/); assert.match(html, /aria-valuenow="25"/);
   assert.match(html, /A newer test is not complete yet/);
-  assert.match(html, /Early blight observations/);
+  assert.doesNotMatch(html, /Selected tests comparison/, 'detailed pair is collapsed by default');
+  const detail = renderToStaticMarkup(<PairComparisonDetails {...resolveComparisonPair(completedPlantRecords(records, 'tomato', 'plant-a'))!} />);
+  assert.match(detail, /Early blight observations/);
   assert.doesNotMatch(html, /NaN|undefined|<option value="d"/);
   const compact = renderToStaticMarkup(<RecordChange previous={records[1]} current={records[2]} />);
   assert.match(compact, /15 points lower/);
@@ -125,4 +128,73 @@ test('supports healthy Urdu diagnoses without assuming an untranslated label is 
   assert.match(comparePlantRecords(record('a', 1, 60), after).diagnosisTitle, /not detected/);
   const unknown = record('b', 2, 20, 'نامعلوم بیماری');
   assert.equal(comparePlantRecords(record('a', 1, 60), unknown).diagnosisTitle, 'Cause still needs confirmation');
+});
+
+test('shows all 4, 10 and 100 tests, each adjacent change, and first-to-latest overall progress', () => {
+  for (const count of [4, 10, 100]) {
+    const records = Array.from({ length: count }, (_, index) => record(`history-${index + 1}`, 1, index % 2 ? 25 : 75, 'Early blight', {
+      createdAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+    }));
+    const history = plantComparisonHistory([...records].reverse(), 'tomato', 'plant-a');
+    assert.equal(history.entries.length, count);
+    assert.equal(history.entries[0].comparison, null);
+    assert.equal(history.overall!.change, -50);
+    history.entries.slice(1).forEach((entry, index) => assert.equal(entry.comparison!.change, index % 2 ? 50 : -50));
+    const html = renderToStaticMarkup(<PlantProgressComparison records={records} cropId="tomato" plantId="plant-a" />);
+    assert.equal((html.match(/<article /g) || []).length, count, 'no history truncation or all-pairs explosion');
+    for (const r of records) assert.ok(html.includes(`href="/report/${r.reportId}"`));
+    assert.match(html, /What changed across all tests/);
+    assert.match(html, /overflow-x-auto/);
+    assert.match(html, /aria-expanded="false"/);
+  }
+});
+
+test('selects any two tests in chronological order without changing the all-tests overview', () => {
+  const records = [record('one', 1, 45), record('two', 2, 75), record('three', 3, 50), record('four', 4, 25)];
+  const history = plantComparisonHistory(records, 'tomato', 'plant-a');
+  for (let i = 0; i < records.length; i++) for (let j = 0; j < records.length; j++) {
+    if (i === j) continue;
+    const pair = resolveComparisonPair(history.complete, records[i].id, records[j].id)!;
+    assert.equal(pair.earlierNumber, Math.min(i, j) + 1);
+    assert.equal(pair.newerNumber, Math.max(i, j) + 1);
+    assert.equal(pair.comparison.change, records[Math.max(i, j)].severityScore! - records[Math.min(i, j)].severityScore!);
+  }
+  const pair = resolveComparisonPair(history.complete, 'two', 'four')!;
+  const html = renderToStaticMarkup(<PairComparisonDetails {...pair} />);
+  assert.match(html, /50 points lower/);
+  assert.match(html, /href="\/report\/two"/);
+  assert.match(html, /href="\/report\/four"/);
+  assert.doesNotMatch(html, /href="\/report\/three"/);
+  assert.equal(history.entries.length, 4);
+});
+
+test('pair selections survive new data, missing selections, same selections and baseline state', () => {
+  const records = [record('one', 1, 45), record('two', 2, 75), record('three', 3, 50), record('four', 4, 25)];
+  assert.equal(resolveComparisonPair([]), null);
+  assert.equal(resolveComparisonPair(records.slice(0, 1)), null);
+  assert.equal(resolveComparisonPair(records)!.selected.id, 'four');
+  assert.equal(resolveComparisonPair(records)!.against.id, 'three');
+  const next = [...records, record('five', 5, 20)];
+  assert.equal(resolveComparisonPair(next)!.selected.id, 'five', 'default follows latest on realtime updates');
+  assert.equal(resolveComparisonPair(next, 'two', 'four')!.selected.id, 'two', 'explicit selection is preserved');
+  assert.equal(resolveComparisonPair(records, 'deleted', 'three')!.selected.id, 'four');
+  assert.equal(resolveComparisonPair(records, 'one', 'one')!.against.id, 'two');
+  assert.equal(resolveComparisonPair(records, 'four', 'four')!.against.id, 'three');
+});
+
+test('all-test findings normalize labels and preserve zero, missing scores and uncertain results', () => {
+  const records = [record('one', 1, 75), record('two', 2, null), record('three', 3, 0, 'Healthy')];
+  records[0].diagnosis!.affectedParts = [' LEAVES ', 'Fruit'];
+  records[1].diagnosis!.affectedParts = ['leaf', 'Stems'];
+  records[1].diagnosis!.confidence = 40;
+  const history = plantComparisonHistory(records, 'tomato', 'plant-a');
+  assert.deepEqual(history.parts.map(([key]) => key), ['leaf', 'fruit', 'stem']);
+  assert.equal(history.entries[1].comparison!.change, null);
+  assert.equal(history.entries[1].comparison!.title, 'Possible improvement');
+  assert.equal(history.overall!.currentScore, 0);
+  const html = renderToStaticMarkup(<PlantProgressComparison records={records} cropId="tomato" plantId="plant-a" />);
+  assert.match(html, /Numeric score unavailable/);
+  assert.match(html, /aria-valuenow="0"/);
+  assert.match(html, /Not reported does not confirm an issue is resolved/);
+  assert.doesNotMatch(html, /NaN|undefined/);
 });

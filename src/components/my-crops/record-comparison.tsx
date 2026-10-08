@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useId, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, CircleHelp, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, CircleHelp, Leaf, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { severityTone, type PlantRecord } from '@/lib/my-crops/models';
-import { comparePlantRecords, completedPlantRecords, validSeverityScore, type RecordComparison } from '@/lib/my-crops/record-comparison';
+import { comparePlantRecords, validSeverityScore, type RecordComparison } from '@/lib/my-crops/record-comparison';
+
+import { plantComparisonHistory, resolveComparisonPair } from '@/lib/my-crops/comparison-history';
 
 function recordDate(value: string): string {
   const date = new Date(value);
@@ -23,20 +25,6 @@ function TrendIcon({ comparison }: { comparison: RecordComparison }) {
   return <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />;
 }
 
-function Snapshot({ record, label }: { record: PlantRecord; label: string }) {
-  const score = validSeverityScore(record.severityScore);
-  return <div className="min-w-0 rounded-2xl border border-emerald-100 bg-white p-4">
-    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{label}</p>
-    <p className="mt-1 text-xs text-slate-500">{recordDate(record.createdAt)}</p>
-    {record.imageThumb && <img src={record.imageThumb} alt={`${label}: ${record.age}`} width={320} height={160} loading="lazy" className="mt-3 h-32 w-full rounded-xl bg-emerald-50 object-contain" />}
-    <p className="mt-3 break-words text-sm font-semibold text-emerald-950">{record.diagnosis?.disease || 'Diagnosis unavailable'}</p>
-    <p className="mt-1 text-xs text-slate-500">Plant age: {record.age}</p>
-    <p className="mt-3 text-sm text-slate-600">Severity: <strong className="text-emerald-950">{score === null ? record.diagnosis?.severity || 'Unavailable' : `${score}/100`}</strong></p>
-    {score !== null && <div role="meter" aria-label={`${label} estimated severity`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${severityTone(score)}`} style={{ width: `${score}%` }} /></div>}
-    <Link href={`/report/${record.reportId}`} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">View {label.toLowerCase()} report<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
-  </div>;
-}
-
 export function RecordChange({ previous, current }: { previous?: PlantRecord; current: PlantRecord }) {
   if (!previous) return <p className="mt-4 border-t border-emerald-50 pt-3 text-xs text-slate-500">Baseline test · No earlier completed test to compare.</p>;
   const comparison = comparePlantRecords(previous, current);
@@ -46,50 +34,87 @@ export function RecordChange({ previous, current }: { previous?: PlantRecord; cu
   </div>;
 }
 
-export function PlantProgressComparison({ records, cropId, plantId }: { records: PlantRecord[]; cropId: string; plantId: string }) {
-  const [selectedId, setSelectedId] = useState('');
-  const selectId = useId();
-  const complete = completedPlantRecords(records, cropId, plantId);
-  const latest = complete[complete.length - 1];
-  const earlier = complete.slice(0, -1);
-  const previous = earlier.find(record => record.id === selectedId) || earlier[earlier.length - 1];
-  const comparison = latest && previous ? comparePlantRecords(previous, latest) : null;
-  const hasNewerIncomplete = latest && records.some(record => record.cropId === cropId && record.plantId === plantId && record.status !== 'Complete' && Date.parse(record.createdAt) > Date.parse(latest.createdAt));
-  const firstComparison = latest && complete.length > 2 ? comparePlantRecords(complete[0], latest) : null;
+function ChangeBadge({ comparison }: { comparison: RecordComparison }) {
+  const delta = comparison.change;
+  return <div title={[comparison.summary, ...comparison.reviewReasons].join(' ')} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-4 ${trendStyle(comparison)}`}>
+    <TrendIcon comparison={comparison} />
+    <span>{delta !== null && <span className="font-semibold">{delta > 0 ? '+' : ''}{delta} {Math.abs(delta) === 1 ? 'point' : 'points'} · </span>}{comparison.title}</span>
+  </div>;
+}
 
-  return <section aria-label="Plant progress comparison" className="mb-8 rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold text-emerald-950">Progress comparison</h2><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">{complete.length} completed {complete.length === 1 ? 'test' : 'tests'}</span></div>
-    {!comparison || !latest || !previous ? <div className="rounded-2xl bg-[#f6f8f2] p-4 text-sm leading-6 text-slate-600">
-      <p className="font-semibold text-emerald-950">{latest ? 'Your first test is the baseline' : 'Start tracking your plant’s progress'}</p>
-      <p className="mt-2">{latest ? 'Add another photo of this same plant using Add new record. Once its analysis finishes, we will compare the two tests here automatically.' : 'Complete two tests of this same plant to see whether its estimated condition is improving or worsening.'}</p>
-      {latest && <p className="mt-2 text-xs">Baseline: {latest.diagnosis?.disease || 'Saved test'} · {recordDate(latest.createdAt)}</p>}
-      <Link href={`/my-crops/${cropId}/${plantId}/new`} className="mt-3 inline-flex items-center gap-2 font-semibold text-emerald-700 hover:underline">Add new record<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
-    </div> : <>
-      <p className="mb-4 text-sm text-slate-600">Compare the latest completed test with an earlier record of this plant.</p>
-      <label htmlFor={selectId} className="mb-2 block text-xs font-semibold text-slate-700">Compare latest test with</label>
-      <select id={selectId} value={previous.id} onChange={event => setSelectedId(event.target.value)} className="mb-4 min-h-11 w-full min-w-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-        {earlier.map((record, index) => <option key={record.id} value={record.id}>Test {index + 1} · {record.age} · {recordDate(record.createdAt)}{index === earlier.length - 1 ? ' (previous test)' : index === 0 ? ' (first test)' : ''}</option>)}
-      </select>
-      <div aria-live="polite" aria-atomic="true" className={`rounded-2xl border p-4 ${trendStyle(comparison)}`}>
-        <div className="flex items-center gap-2"><TrendIcon comparison={comparison} /><h3 className="text-lg font-semibold">{comparison.title}</h3></div>
-        <p className="mt-2 text-sm leading-6">{comparison.summary}</p>
+function TestCard({ record, number, latest, comparison }: { record: PlantRecord; number: number; latest: boolean; comparison: RecordComparison | null }) {
+  const score = validSeverityScore(record.severityScore);
+  const severity = record.diagnosis?.severity;
+  const badge = severity === 'High' ? 'bg-orange-100 text-orange-900' : severity === 'Medium' ? 'bg-amber-100 text-amber-900' : severity === 'Low' || severity === 'None' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600';
+  return <article aria-label={`Test ${number}${latest ? ', latest' : ''}`} className={`flex min-w-0 flex-col rounded-xl border p-3 ${latest ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-200 bg-white'}`}>
+    <div className="flex flex-wrap items-center justify-between gap-1"><h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">Test {number}</h3>{(latest || number === 1) && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${latest ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>{latest ? 'Latest' : 'Baseline'}</span>}</div>
+    <time dateTime={record.createdAt} title={recordDate(record.createdAt)} className="mt-1 block text-[11px] leading-4 text-slate-500">{Number.isFinite(Date.parse(record.createdAt)) ? new Date(record.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date unavailable'}</time>
+    {record.imageThumb ? <img src={record.imageThumb} alt={`Test ${number}: ${record.age}`} width={280} height={120} loading="lazy" className="mt-2 h-24 w-full rounded-lg bg-emerald-50 object-contain sm:h-28" /> : <div className="mt-2 flex h-24 items-center justify-center rounded-lg bg-emerald-50 text-emerald-300 sm:h-28"><Leaf aria-label="No saved photo" className="h-8 w-8" /></div>}
+    <p className="mt-2 truncate text-[11px] text-slate-500" title={record.age}>Age: {record.age}</p>
+    <p className="mt-2 text-[11px] text-slate-500">Estimated severity</p>
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-1"><strong className="text-xl tracking-tight text-slate-900">{score === null ? '—' : <>{score}<span className="text-sm font-normal">/100</span></>}</strong><span className={`rounded-md px-2 py-1 text-[10px] font-semibold ${badge}`}>{severity || 'Unavailable'}</span></div>
+    {score !== null ? <div role="meter" aria-label={`Test ${number} estimated severity`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${severityTone(score)}`} style={{ width: `${score}%` }} /></div> : <p className="mt-1 text-[10px] text-slate-500">Numeric score unavailable</p>}
+    <div className="mt-3 border-t border-slate-100 pt-2"><p className="text-[11px] text-slate-500">Disease reported</p><p title={record.diagnosis?.disease} className="mt-1 line-clamp-2 min-h-10 break-words text-sm font-semibold leading-5 text-slate-900">{record.diagnosis?.disease || 'Diagnosis unavailable'}</p></div>
+    <div className="mt-3">{comparison ? <ChangeBadge comparison={comparison} /> : <p className="py-2 text-[11px] text-slate-500">First saved test</p>}</div>
+    <Link href={`/report/${record.reportId}`} aria-label={`Open Test ${number} report`} className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-semibold text-emerald-700 underline underline-offset-2">Open report<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
+  </article>;
+}
+
+export function PairComparisonDetails({ earlier, newer, earlierNumber, newerNumber, comparison }: NonNullable<ReturnType<typeof resolveComparisonPair>>) {
+  return <div className="mt-4 rounded-2xl border border-emerald-100 bg-[#fbfcf9] p-4" aria-label="Selected tests comparison" aria-live="polite">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold text-emerald-950">Test {earlierNumber} <span className="font-normal text-slate-400">vs</span> Test {newerNumber}</h3><ChangeBadge comparison={comparison} /></div>
+    <p className="mt-3 text-sm leading-6 text-slate-600">{comparison.summary}</p>
+    {comparison.diagnosisTitle && <div className="mt-3 text-xs leading-5 text-slate-600"><p className="font-semibold text-slate-800">{comparison.diagnosisTitle}</p><p className="mt-1">{comparison.diagnosisSummary}</p></div>}
+    <dl className="mt-3 space-y-1 text-xs leading-5">
+      {comparison.parts.continuing.length > 0 && <div><dt className="inline font-semibold text-slate-700">Still reported: </dt><dd className="inline text-slate-600">{comparison.parts.continuing.join(', ')}</dd></div>}
+      {comparison.parts.added.length > 0 && <div><dt className="inline font-semibold text-orange-800">Newly reported: </dt><dd className="inline text-slate-600">{comparison.parts.added.join(', ')}</dd></div>}
+      {comparison.parts.removed.length > 0 && <div><dt className="inline font-semibold text-slate-700">No longer reported: </dt><dd className="inline text-slate-600">{comparison.parts.removed.join(', ')}. This alone does not confirm recovery.</dd></div>}
+    </dl>
+    {comparison.reviewReasons.length > 0 && <ul className="mt-3 list-disc space-y-1 rounded-xl bg-amber-50 py-2 pl-6 pr-3 text-xs leading-5 text-amber-900">{comparison.reviewReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+    <details className="mt-3 text-xs"><summary className="cursor-pointer font-semibold text-emerald-800">Read both saved observations</summary><div className="mt-3 grid gap-4 leading-6 text-slate-600 sm:grid-cols-2">{[{ record: earlier, number: earlierNumber }, { record: newer, number: newerNumber }].map(({ record, number }) => <div key={record.id}><h4 className="font-semibold text-slate-800">Test {number} · {recordDate(record.createdAt)}</h4><p className="mt-1">{record.diagnosis?.description || 'No description was saved.'}</p>{record.symptoms && <p className="mt-2"><strong>Reported symptoms: </strong>{record.symptoms}</p>}<Link href={`/report/${record.reportId}`} className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 hover:underline">View Test {number} report<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></Link></div>)}</div></details>
+  </div>;
+}
+
+export function PlantProgressComparison({ records, cropId, plantId }: { records: PlantRecord[]; cropId: string; plantId: string }) {
+  const [testId, setTestId] = useState('');
+  const [compareId, setCompareId] = useState('');
+  const [showPair, setShowPair] = useState(false);
+  const id = useId();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { complete, entries, overall, parts, reportedParts } = plantComparisonHistory(records, cropId, plantId);
+  const latest = complete[complete.length - 1];
+  const pair = resolveComparisonPair(complete, testId, compareId);
+  const lastChange = entries[entries.length - 1]?.comparison;
+  const incomplete = records.filter(record => record.cropId === cropId && record.plantId === plantId && record.status !== 'Complete').length;
+  const hasNewerIncomplete = latest && records.some(record => record.cropId === cropId && record.plantId === plantId && record.status !== 'Complete' && Date.parse(record.createdAt) > Date.parse(latest.createdAt));
+  const diagnosisChanged = entries.some(entry => entry.comparison?.diagnosisTitle === 'Reported diagnosis changed');
+  const scroll = (direction: number) => {
+    const element = scrollRef.current;
+    if (element) element.scrollBy({ left: direction * element.clientWidth * 0.8, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  };
+  const selectClass = 'min-h-10 w-full min-w-0 rounded-lg border border-emerald-200 bg-white px-2 py-2 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600';
+
+  return <section aria-label="Plant progress comparison" className="mb-8 min-w-0 rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold tracking-tight text-emerald-950">Plant health comparison</h2><p className="mt-1 text-xs text-slate-500">{complete.length} completed {complete.length === 1 ? 'test' : 'tests'} · Full progress at a glance</p></div>{latest && <Link href={`/report/${latest.reportId}`} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">View latest report<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>}</div>
+    {!overall ? <div className="rounded-2xl bg-[#f6f8f2] p-4 text-sm leading-6 text-slate-600"><p className="font-semibold text-emerald-950">{latest ? 'Your first test is the baseline' : 'Start tracking your plant’s progress'}</p><p className="mt-2">{latest ? 'Add another photo of this same plant using Add new record. Once its analysis finishes, the progress will appear here automatically.' : 'Complete two tests of this same plant to see whether its estimated condition is improving or worsening.'}</p><Link href={`/my-crops/${cropId}/${plantId}/new`} className="mt-3 inline-flex items-center gap-2 font-semibold text-emerald-700 hover:underline">Add new record<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></div> : <div aria-live="polite" aria-atomic="true" className={`rounded-xl border p-4 ${trendStyle(overall)}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><TrendIcon comparison={overall} /><div><h3 className="text-lg font-semibold">{overall.title}{overall.direction === 'improving' || overall.direction === 'worsening' ? ' overall' : ''}</h3><p className="mt-0.5 text-[11px] opacity-75">First test → latest test</p></div></div>{overall.change !== null && <div><p className="text-xl font-semibold tabular-nums">{overall.previousScore} → {overall.currentScore}<span className="text-xs font-normal"> /100</span></p><p className="mt-0.5 text-xs">{overall.change === 0 ? 'No score change' : `${Math.abs(overall.change)} points ${overall.change < 0 ? 'lower' : 'higher'}`}</p></div>}</div>
+      <p className="mt-2 text-xs leading-5">{overall.summary}</p>
+      {complete.length > 2 && lastChange && <p className="mt-2 border-t border-current/10 pt-2 text-xs leading-5"><strong>Latest change · Test {complete.length - 1} → {complete.length}: </strong>{lastChange.title}. {lastChange.change !== null ? `${Math.abs(lastChange.change)} points ${lastChange.change < 0 ? 'lower' : lastChange.change > 0 ? 'higher' : 'change'}.` : lastChange.summary}</p>}
+      {overall.reviewReasons.length > 0 && <details className="mt-2 text-xs leading-5"><summary className="cursor-pointer font-semibold">Interpret with care</summary><ul className="mt-1 list-disc space-y-1 pl-4">{overall.reviewReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
+    </div>}
+    {complete.length > 0 && <>
+      <div className="mb-2 mt-4 flex items-center justify-between gap-2"><p className="text-xs font-medium text-slate-600">All {complete.length} {complete.length === 1 ? 'test' : 'tests'} · Oldest to latest</p>{complete.length > 1 && <div className="flex items-center gap-1"><button type="button" aria-label="Scroll to earlier tests" aria-controls={`${id}-history`} onClick={() => scroll(-1)} className="rounded-lg border border-slate-200 p-2 text-emerald-700 hover:bg-emerald-50"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button><button type="button" aria-label="Scroll to later tests" aria-controls={`${id}-history`} onClick={() => scroll(1)} className="rounded-lg border border-slate-200 p-2 text-emerald-700 hover:bg-emerald-50"><ChevronRight aria-hidden="true" className="h-4 w-4" /></button></div>}</div>
+      <div ref={scrollRef} id={`${id}-history`} role="region" aria-label="All tests and findings; scroll horizontally for more tests" tabIndex={0} className="overflow-x-auto rounded-xl pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+        <div style={{ minWidth: complete.length === 1 ? undefined : `${complete.length * 148 + (complete.length - 1) * 12}px` }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${complete.length}, minmax(0, 1fr))` }}>{entries.map(({ record, number, comparison }) => <TestCard key={record.id} record={record} number={number} latest={complete.length > 1 && number === complete.length} comparison={comparison} />)}</div>
+          {complete.length > 1 && <p className="mt-2 text-[11px] text-slate-500">Changes shown against the previous test.</p>}
+          {overall && <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3"><h3 className="mb-2 text-sm font-semibold text-slate-900">What changed across all tests</h3><div className="max-h-64 overflow-y-auto"><table className="w-full border-collapse text-left text-[11px] leading-4"><caption className="sr-only">Affected parts reported in every completed test</caption><thead className="sticky top-0 bg-slate-100 text-slate-700"><tr><th scope="col" className="px-2 py-2 font-semibold">Finding</th>{entries.map(({ record, number }) => <th key={record.id} scope="col" className="px-2 py-2 font-semibold">Test {number}</th>)}</tr></thead><tbody>{parts.length ? parts.map(([key, label]) => <tr key={key} className="border-b border-slate-100"><th scope="row" className="px-2 py-2 font-medium capitalize text-slate-700">{label}</th>{entries.map(({ record }, index) => { const known = !!record.diagnosis && Array.isArray(record.diagnosis.affectedParts); const reported = reportedParts[index].has(key); return <td key={record.id} className="px-2 py-2"><span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${known && reported ? 'text-slate-700' : 'text-slate-400'}`}><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${known && reported ? 'bg-amber-500' : 'bg-slate-300'}`} />{!known ? 'Unavailable' : reported ? 'Reported' : 'Not reported'}</span></td>; })}</tr>) : <tr><td colSpan={complete.length + 1} className="px-2 py-3 text-slate-500">No affected parts were listed in these saved reports.</td></tr>}</tbody></table></div></div>}
+        </div>
       </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"><Snapshot record={previous} label="Earlier test" /><Snapshot record={latest} label="Latest test" /></div>
-      {comparison.diagnosisTitle && <div className="mt-5"><h3 className="text-sm font-semibold text-emerald-950">{comparison.diagnosisTitle}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{comparison.diagnosisSummary}</p></div>}
-      {(comparison.parts.added.length > 0 || comparison.parts.removed.length > 0 || comparison.parts.continuing.length > 0) && <div className="mt-4 rounded-2xl bg-[#f6f8f2] p-4">
-        <h3 className="mb-3 text-sm font-semibold text-emerald-950">Affected parts in the reports</h3>
-        <dl className="space-y-2 text-xs leading-5">
-          {comparison.parts.continuing.length > 0 && <div><dt className="font-semibold text-slate-700">Still reported</dt><dd className="text-slate-600">{comparison.parts.continuing.join(', ')}</dd></div>}
-          {comparison.parts.added.length > 0 && <div><dt className="font-semibold text-orange-800">Newly reported</dt><dd className="text-slate-600">{comparison.parts.added.join(', ')}</dd></div>}
-          {comparison.parts.removed.length > 0 && <div><dt className="font-semibold text-emerald-800">No longer reported</dt><dd className="text-slate-600">{comparison.parts.removed.join(', ')}</dd></div>}
-        </dl>
-        <p className="mt-3 text-xs leading-5 text-slate-500">A part missing from a newer report may be outside the photo; this alone does not confirm recovery.</p>
-      </div>}
-      {comparison.reviewReasons.length > 0 && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><p className="font-semibold">Interpret with care</p><ul className="mt-1 list-disc space-y-1 ps-4">{comparison.reviewReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div>}
-      {firstComparison && firstComparison.basis !== 'unavailable' && <p className="mt-4 border-t border-emerald-100 pt-3 text-xs leading-5 text-slate-600"><strong>Since the first test: </strong>{firstComparison.summary}</p>}
-      <details className="mt-4 text-sm"><summary className="cursor-pointer font-semibold text-emerald-800">Read both saved observations</summary><div className="mt-3 grid gap-4 text-xs leading-6 text-slate-600 sm:grid-cols-2"><div><h4 className="font-semibold text-slate-800">Earlier test</h4><p className="mt-1">{previous.diagnosis?.description || 'No description was saved.'}</p>{previous.symptoms && <p className="mt-2"><strong>Reported symptoms: </strong>{previous.symptoms}</p>}</div><div><h4 className="font-semibold text-slate-800">Latest test</h4><p className="mt-1">{latest.diagnosis?.description || 'No description was saved.'}</p>{latest.symptoms && <p className="mt-2"><strong>Reported symptoms: </strong>{latest.symptoms}</p>}</div></div></details>
-      <p className="mt-4 text-xs leading-5 text-slate-500">Based on saved AI estimates, not a new diagnosis or proof of cure. For a more useful comparison, photograph the same plant parts in similar lighting and at a similar distance.</p>
+      {overall && <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-500">Not reported does not confirm an issue is resolved.{diagnosisChanged && ' A changed diagnosis label does not prove the earlier condition has resolved.'}</p>}
     </>}
-    {hasNewerIncomplete && <p role="status" className="mt-4 text-xs leading-5 text-slate-500">A newer test is not complete yet. This comparison uses completed tests and will update when that analysis finishes.</p>}
+    {pair && <div className="mt-4 border-t border-emerald-100 pt-4"><div className="flex flex-wrap items-end gap-2"><div className="min-w-0 flex-1 basis-36"><label htmlFor={`${id}-test`} className="mb-1.5 block text-xs font-semibold text-slate-700">Compare specific tests</label><select id={`${id}-test`} value={pair.selected.id} onChange={event => setTestId(event.target.value)} className={selectClass}>{entries.map(({ record, number }) => <option key={record.id} value={record.id}>Test {number}{number === complete.length ? ' (latest)' : ''} · {record.age}</option>)}</select></div><div className="min-w-0 flex-1 basis-36"><label htmlFor={`${id}-against`} className="mb-1.5 block text-xs font-semibold text-slate-700">Compare with</label><select id={`${id}-against`} value={pair.against.id} onChange={event => setCompareId(event.target.value)} className={selectClass}>{entries.filter(({ record }) => record.id !== pair.selected.id).map(({ record, number }) => <option key={record.id} value={record.id}>Test {number} · {record.age}</option>)}</select></div><button type="button" aria-expanded={showPair} aria-controls={`${id}-pair`} onClick={() => setShowPair(!showPair)} className="min-h-10 rounded-lg border border-emerald-600 px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">{showPair ? 'Hide comparison' : 'Compare'}</button></div><div id={`${id}-pair`}>{showPair && <PairComparisonDetails {...pair} />}</div></div>}
+    {incomplete > 0 && <p role="status" className="mt-3 text-xs leading-5 text-slate-500">{hasNewerIncomplete ? 'A newer test is not complete yet. ' : ''}{incomplete} processing or failed {incomplete === 1 ? 'test is' : 'tests are'} excluded. The comparison updates when analysis finishes.</p>}
+    {latest && <p className="mt-3 text-[11px] leading-5 text-slate-400">AI estimates from saved reports, not proof of cure. Compare the same plant parts in similar lighting.</p>}
   </section>;
 }

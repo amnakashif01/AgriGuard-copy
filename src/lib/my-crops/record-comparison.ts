@@ -41,7 +41,7 @@ export function completedPlantRecords(records: PlantRecord[], cropId: string, pl
     });
 }
 
-function partMap(parts: string[] | undefined): Map<string, string> {
+export function partMap(parts: string[] | undefined): Map<string, string> {
   const result = new Map<string, string>();
   for (const part of parts || []) {
     const label = cleanName(part);
