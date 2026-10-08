@@ -20,7 +20,7 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
         <summary className="cursor-pointer">Model details{regions.length ? ' and detected leaf regions' : ''}</summary>
         <div className="mt-3 space-y-2">
           <p>YOLO11m trained on PlantDoc · 29 leaf categories · server CPU processing: {(evidence.detector.elapsedMs / 1000).toFixed(2)} s.</p>
-          <p>It does not cover every crop or disease, including Fall Armyworm.</p>
+          <p>This model recognizes 29 leaf categories. Fruit rot, ear or stem diseases, Fall Armyworm and unlisted crops are outside its trained scope. A Gemini fallback result is not a diagnosis from this leaf model.</p>
           {evidence.reviewReason && <p>Image review: {evidence.reviewReason}</p>}
           <a href={DETECTOR_SOURCE} target="_blank" rel="noreferrer" className="underline">Model source and pinned version (AGPL-3.0)</a>
           <p><a href="https://github.com/amnakashif01/AgriGuard-copy" target="_blank" rel="noreferrer" className="underline">Application integration source</a></p>

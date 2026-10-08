@@ -78,6 +78,10 @@ export type DiagnosisReport = {
   uid: string;
   crop?: string;
   imageThumb?: string;
+  /** Bounded, higher-quality image used for both initial inference and retries. */
+  analysisImage?: string;
+  /** User-selected crop, kept separate from the model prediction. */
+  requestedCrop?: string;
   symptoms?: string;
   imageUrl?: string; // storage url or data url persisted elsewhere
   disease: string;

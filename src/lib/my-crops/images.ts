@@ -9,7 +9,7 @@ export async function preparePlantPhoto(file: File): Promise<{ imageThumb: strin
       image.onerror = () => reject(new Error('This photo could not be opened. Choose another image.'));
       image.src = url;
     });
-    const compress = (size: number, maxCharacters: number) => {
+    const compress = (size: number, maxCharacters: number, quality: number) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Photo processing is unavailable in this browser.');
@@ -20,11 +20,26 @@ export async function preparePlantPhoto(file: File): Promise<{ imageThumb: strin
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const data = canvas.toDataURL('image/jpeg', 0.82 - attempt * 0.08);
+        const data = canvas.toDataURL('image/jpeg', quality - attempt * 0.06);
         if (data.length <= maxCharacters) return data;
       }
       throw new Error('This photo is too detailed to save. Please choose a smaller crop photo.');
     };
-    return { imageThumb: compress(360, 100000), analysisImage: compress(1200, 420000) };
+    // Preserve original bytes when they fit: JPEG re-encoding can erase the
+    // textures used by the detector, even for a small, already-compressed photo.
+    let analysisImage: string | undefined;
+    if (file.size <= 314000 && image.naturalWidth * image.naturalHeight <= 16000000) {
+      analysisImage = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('This photo could not be read. Please select it again.'));
+        reader.readAsDataURL(file);
+      });
+    }
+    return {
+      imageThumb: compress(360, 100000, 0.82),
+      analysisImage: analysisImage && analysisImage.length <= 420000
+        ? analysisImage : compress(1280, 420000, 0.92),
+    };
   } finally { URL.revokeObjectURL(url); }
 }

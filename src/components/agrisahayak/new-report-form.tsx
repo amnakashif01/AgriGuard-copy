@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { createReport, createLog, updateReport, getProfile, listFields } from '@/lib/repositories';
 import { DiagnosisReport, UserProfile, Field } from '@/lib/models';
 import { isPlanEligible } from '@/lib/report-utils';
+import { preparePlantPhoto } from '@/lib/my-crops/images';
 
 type LoadingState = 'idle' | 'starting' | 'diagnosing' | 'planning' | 'done' | 'error';
 type LoadingMessages = { [key in LoadingState]?: string };
@@ -38,75 +39,6 @@ const loadingMessages: LoadingMessages = {
     diagnosing: 'Analyzing your crop with AI...',
     planning: 'Creating personalized treatment plan...',
 };
-
-function fileToDataUri(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-function blobToDataUri(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-// Compress an image File using an offscreen canvas and return a Blob
-async function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<Blob> {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const img = document.createElement('img') as HTMLImageElement;
-            img.onload = () => {
-                try {
-                    const ratio = Math.min(1, maxWidth / img.width);
-                    const width = Math.round(img.width * ratio);
-                    const height = Math.round(img.height * ratio);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) throw new Error('Canvas context not available');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    canvas.toBlob(
-                        blob => {
-                            if (!blob) return reject(new Error('Compression toBlob returned null'));
-                            resolve(blob);
-                        },
-                        'image/jpeg',
-                        quality
-                    );
-                } catch (err) {
-                    reject(err);
-                }
-            };
-            img.onerror = () => reject(new Error('Failed to load image for compression'));
-            // Use object URL to avoid base64 memory usage
-            const url = URL.createObjectURL(file);
-            img.src = url;
-            // revoke later
-            img.addEventListener('load', () => URL.revokeObjectURL(url));
-        } catch (err) {
-            reject(err);
-        }
-    });
-}
-
-// Create a small thumbnail data URI (safe for Firestore) -- keep under ~200KB
-async function createThumbnailDataUri(file: File, maxWidth = 480, quality = 0.65): Promise<string> {
-    const blob = await compressImage(file, maxWidth, quality);
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
 
 export default function NewReportForm() {
     const { user, isUserLoading } = useAuth();
@@ -180,8 +112,8 @@ export default function NewReportForm() {
                 toast({ title: "Image too large", description: "Please upload an image under 10MB.", variant: "destructive" });
                 return;
             }
-            if (!['image/png', 'image/jpeg'].includes(file.type)) {
-                toast({ title: "Invalid file type", description: "Please upload a PNG or JPG image.", variant: "destructive" });
+            if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+                toast({ title: "Invalid file type", description: "Please upload a PNG, JPG or WebP image.", variant: "destructive" });
                 return;
             }
             setImageFile(file);
@@ -216,38 +148,25 @@ export default function NewReportForm() {
         let reportId = '';
 
         try {
-            // Phase 1: Parallel preparation — report, thumbnail, and analysis image at once
-            console.log("Starting optimized report creation...");
-            const [newReportId, imageThumb, analysisBlob] = await Promise.all([
-                createReport(user.uid, {
-                    crop: selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : 'Crop to be identified',
-                    symptoms,
-                    status: 'Processing',
-                    ...(selectedField !== 'none' && selectedField ? { fieldId: selectedField } : {}),
-                } as any),
-                createThumbnailDataUri(imageFile, 480, 0.65),
-                // Keep small originals intact: repeated JPEG encoding can erase
-                // subtle disease texture and change detector confidence substantially.
-                imageFile.size <= 2 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)
-                    ? Promise.resolve(imageFile)
-                    : compressImage(imageFile, 1280, 0.92),
-            ]);
-            reportId = newReportId;
-            console.log("Phase 1 complete — Report ID:", reportId);
-
-            // Fire-and-forget: persist thumbnail and log (non-blocking)
-            await updateReport(user.uid, reportId, { imageThumb } as any);
+            // Validate/process before creating a record, then save the exact inference
+            // image so a retry cannot silently use a lower-quality thumbnail.
+            const { imageThumb, analysisImage } = await preparePlantPhoto(imageFile);
+            const cropToAnalyze = selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : 'Unknown Crop';
+            reportId = await createReport(user.uid, {
+                crop: cropToAnalyze === 'Unknown Crop' ? 'Crop to be identified' : cropToAnalyze,
+                requestedCrop: cropToAnalyze,
+                symptoms, imageThumb, analysisImage,
+                status: 'Processing',
+                ...(selectedField !== 'none' && selectedField ? { fieldId: selectedField } : {}),
+            } as any);
             createLog({ agentName: 'ingestAgent', action: 'report_created', reportId, status: 'success' });
-
-            // Set report state for the loading UI
-            setReport({ id: reportId, imageUrl: imageThumb, imageThumb, symptoms } as any);
+            setReport({ id: reportId, imageUrl: imageThumb, imageThumb, analysisImage, symptoms } as any);
 
             // Phase 2: AI Diagnosis (direct call, no useEffect state machine)
             setLoadingState('diagnosing');
             console.log("Phase 2 — Starting AI diagnosis...");
 
-            const photoDataUri = await blobToDataUri(analysisBlob);
-            const cropToAnalyze = selectedCrop && selectedCrop !== 'Auto' ? selectedCrop : 'Unknown Crop';
+            const photoDataUri = analysisImage;
 
             createLog({ agentName: 'diagnosticAgent', action: 'diagnosis_started', reportId, status: 'info' });
 
@@ -584,7 +503,7 @@ export default function NewReportForm() {
                                             <p className="mb-2 text-lg font-semibold text-gray-700">
                                                 <span className="text-primary">Click to upload</span> or drag and drop
                                             </p>
-                                            <p className="text-sm text-gray-500">PNG, JPG (MAX. 10MB)</p>
+                                            <p className="text-sm text-gray-500">PNG, JPG, WebP (MAX. 10MB)</p>
                                             <p className="text-xs text-gray-400 mt-2">For best results, ensure good lighting and clear focus</p>
                                         </div>
                                     </label>
@@ -592,7 +511,7 @@ export default function NewReportForm() {
                                         id="image-upload" 
                                         type="file" 
                                         className="hidden" 
-                                        accept="image/png, image/jpeg" 
+                                        accept="image/png,image/jpeg,image/webp"
                                         onChange={handleImageChange} 
                                     />
                                 </div>
@@ -697,6 +616,7 @@ export default function NewReportForm() {
                                     <div>
                                 <p className="font-bold">An Error Occurred</p>
                                         <p className="mt-1">{error}</p>
+                                        {report?.id && <Button type="button" variant="link" className="px-0 text-red-800 underline" onClick={() => router.push(`/report/${report.id}`)}>Open saved report and retry</Button>}
                                     </div>
                                 </div>
                             </div>

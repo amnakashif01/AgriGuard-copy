@@ -3,7 +3,7 @@
 import { doc, runTransaction, type Firestore } from 'firebase/firestore';
 import { getDb } from './firestore';
 import type { DiagnosisReport } from './models';
-import { HIGHLIGHT_REVIEW_VERSION, mergeVisualHighlights, needsHighlightReview, type VisualHighlight } from './report-utils';
+import { HIGHLIGHT_REVIEW_VERSION, getReportAnalysisImage, mergeVisualHighlights, needsHighlightReview, type VisualHighlight } from './report-utils';
 import { localizeDiagnosisHighlights } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
 
 // Save only the image annotations. A late response must never overwrite a newer
@@ -17,7 +17,7 @@ export async function saveReviewedHighlights(uid: string, original: DiagnosisRep
         if (current.status !== 'Complete' || current.disease !== original.disease
             || current.description !== original.description
             || current.updatedAt !== original.updatedAt
-            || (current.imageUrl || current.imageThumb) !== (original.imageUrl || original.imageThumb)) return null;
+            || getReportAnalysisImage(current) !== getReportAnalysisImage(original)) return null;
         if (!needsHighlightReview(current)) return current;
         const patch = {
             visualHighlights: mergeVisualHighlights(current.visualHighlights || [], localized),
@@ -38,7 +38,8 @@ export function reviewReportHighlights(uid: string, report: DiagnosisReport): Pr
     const running = inFlight.get(key);
     if (running) return running;
     const task = (async () => {
-        const src = (report.imageUrl || report.imageThumb) as string;
+        const src = getReportAnalysisImage(report);
+        if (!src || !needsHighlightReview(report)) return report;
         let photoDataUri = src;
         if (!src.startsWith('data:')) {
             const response = await fetch(src);

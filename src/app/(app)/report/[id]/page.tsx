@@ -16,7 +16,7 @@ import { deleteField, getDoc, doc, collection, query, where, getDocs } from "fir
 import { useFirebase } from "@/firebase";
 import LoadingSpinner from "@/components/agrisahayak/loading-spinner";
 import { useToast } from '@/hooks/use-toast';
-import { instantDiagnosisFromImageAndSymptoms } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
+import { diagnoseCrop } from '@/lib/actions/diagnosis-actions';
 import { updateReport, createLog, deleteReport, getProfile } from '@/lib/repositories';
 import { useParams, useRouter } from 'next/navigation';
 import { generateProtectionPlan } from '@/ai/flows/generate-protection-plan';
@@ -25,7 +25,7 @@ import { sendDiagnosisComplete } from '@/lib/notifications';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
-import { findTrackedPreviousReport, isPlanEligible, isTrackedPlantReport } from "@/lib/report-utils";
+import { findTrackedPreviousReport, isPlanEligible, isTrackedPlantReport, getReportAnalysisImage, getReportRequestedCrop } from "@/lib/report-utils";
 import { needsHighlightReview } from "@/lib/report-utils";
 import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import SuppliersCard from "@/components/agrisahayak/suppliers-card";
@@ -247,16 +247,19 @@ export default function ReportDetailPage() {
         setLoading(true);
         try {
             await createLog({ agentName: 'diagnosticAgent', action: 'retry_started', reportId: report.id, status: 'info' });
-            const src = report.imageUrl || report.imageThumb;
+            const src = getReportAnalysisImage(rawReport || report);
             if (!src) throw new Error('No image available for diagnosis');
 
             const photoDataUri = src.startsWith('data:') ? src : await urlToDataUri(src);
 
-            const diagnosis = await instantDiagnosisFromImageAndSymptoms({ 
-                photoDataUri, 
+            const result = await diagnoseCrop({
+                photoDataUri,
+                crop: getReportRequestedCrop(rawReport || report),
                 symptoms: report.symptoms || '',
                 language: profile?.language || 'english'
             });
+            if (!result.ok) throw new Error(result.error);
+            const diagnosis = result.diagnosis;
             await updateReport(user.uid, report.id, {
                 crop: diagnosis.crop,
                 disease: diagnosis.disease,
@@ -272,6 +275,7 @@ export default function ReportDetailPage() {
                 cropEvidence: diagnosis.cropEvidence || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
+                translations: deleteField(),
                 expertReviewRequired: diagnosis.expertReviewRequired,
                 plan: isPlanEligible({ ...diagnosis, status: 'Complete', imageUrl: src }) && diagnosis.plan ? diagnosis.plan : deleteField(),
                 protectionPlan: isPlanEligible({ ...diagnosis, status: 'Complete', imageUrl: src }) && diagnosis.protectionPlan ? diagnosis.protectionPlan : deleteField(),
@@ -293,7 +297,7 @@ export default function ReportDetailPage() {
         } catch (err: any) {
             console.error('Retry failed:', err);
             await createLog({ agentName: 'diagnosticAgent', action: 'retry_failed', reportId: report?.id, status: 'error', payload: { error: err?.message || String(err) } });
-            toast({ title: 'Retry Failed', description: 'Could not complete diagnosis. Try again later.', variant: 'destructive' });
+            toast({ title: 'Retry Failed', description: err?.message || 'Could not complete diagnosis. Try again later.', variant: 'destructive' });
         } finally {
             setLoading(false);
         }
@@ -319,15 +323,18 @@ export default function ReportDetailPage() {
         setLoading(true);
         try {
             await createLog({ agentName: 'diagnosticAgent', action: 'edit_started', reportId: report.id, status: 'info' });
-            const src = report.imageUrl || report.imageThumb;
+            const src = getReportAnalysisImage(rawReport || report);
             if (!src) throw new Error('No image available for diagnosis');
             const photoDataUri = src.startsWith('data:') ? src : await urlToDataUri(src);
             
-            const diagnosis = await instantDiagnosisFromImageAndSymptoms({ 
-                photoDataUri, 
+            const result = await diagnoseCrop({
+                photoDataUri,
+                crop: getReportRequestedCrop(rawReport || report),
                 symptoms: editSymptoms,
                 language: profile?.language || 'english'
             });
+            if (!result.ok) throw new Error(result.error);
+            const diagnosis = result.diagnosis;
             
             await updateReport(user.uid, report.id, {
                 crop: diagnosis.crop,
@@ -344,6 +351,7 @@ export default function ReportDetailPage() {
                 cropEvidence: diagnosis.cropEvidence || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
+                translations: deleteField(),
                 expertReviewRequired: diagnosis.expertReviewRequired,
                 symptoms: editSymptoms,
                 status: 'Complete',
@@ -358,7 +366,7 @@ export default function ReportDetailPage() {
             toast({ title: 'Report Updated', description: 'Your report has been updated successfully.', className: 'bg-green-100 text-green-800' });
         } catch (err: any) {
             console.error('Edit failed:', err);
-            toast({ title: 'Error', description: 'Could not update the report.', variant: 'destructive' });
+            toast({ title: 'Error', description: err?.message || 'Could not update the report.', variant: 'destructive' });
             setLoading(false);
         }
     };
@@ -530,7 +538,7 @@ export default function ReportDetailPage() {
                 </CardHeader>
             </Card>
 
-            {report.cropEvidence ? <CropModelEvidence evidence={report.cropEvidence} imageUrl={report.imageUrl || report.imageThumb} /> : report.modelAssessment ? <PlantModelAssessment assessment={report.modelAssessment} /> : null}
+            {report.cropEvidence ? <CropModelEvidence evidence={report.cropEvidence} imageUrl={getReportAnalysisImage(report)} /> : report.modelAssessment ? <PlantModelAssessment assessment={report.modelAssessment} /> : null}
 
             {/* Direct Inline Comparison / Trend Analysis */}
             {isTrackedPlantReport(report) && previousReport && (
@@ -598,7 +606,7 @@ export default function ReportDetailPage() {
                                 <div className="relative">
                                     <div className="relative inline-block w-full">
                                         <CropImageHighlights
-                                            src={(report.imageUrl || report.imageThumb) as string}
+                                            src={getReportAnalysisImage(report) as string}
                                             alt="Crop diagnosis with detected affected areas highlighted"
                                             highlights={report.visualHighlights || (report.visualHighlight ? [report.visualHighlight] : [])}
                                             showReviewingState={highlightReviewStatus[report.id] === 'reviewing'}
@@ -857,7 +865,7 @@ export default function ReportDetailPage() {
                     )}
 
                     {/* 1-Month Protection Plan */}
-                    <Card>
+                    {isPlanEligible(rawReport || report) && <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ShieldPlus className="h-5 w-5 text-indigo-600" />
@@ -912,7 +920,7 @@ export default function ReportDetailPage() {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
+                    </Card>}
 
                     {/* Report Information */}
                     <Card>

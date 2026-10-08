@@ -108,3 +108,12 @@ explicit fallback, persisted severity fields, existing report behavior and quota
 `CROP_DIAGNOSIS_PROVIDER=gemini` opts out of the detector. The separate `agrichat`
 provider remains optional and requires an authorized working GPU endpoint; it is
 not being claimed as deployed.
+
+
+### Report reliability follow-up (8 October 2026)
+
+- New standalone diagnoses save the exact bounded analysis image alongside a separate thumbnail. Retry/edit reuse that image and the original user crop selection; older reports retain their available image and auto-detection fallback.
+- Small source photos are preserved byte-for-byte (up to 314 KB / 16 MP). Larger photos are resized to fit a 420,000-character analysis image budget before both inference and persistence. Shared My Crops photo processing uses the same quality protection; comparison behavior is unchanged.
+- Hybrid reports already include Gemini symptom localization in their initial request. Opening these reports no longer starts a second automatic localization call; existing circles remain displayed. Legacy dedicated-review behavior is retained.
+- Retry/edit expose safe provider timeout/quota messages and clear obsolete cached translations after a successful re-analysis. Non-plant/healthy reports do not offer disease protection-plan generation.
+- These are reliability fixes, not additional training or an expansion of the detector's 29 leaf categories. Fruit rot, stem/ear conditions and Fall Armyworm remain outside its trained scope.

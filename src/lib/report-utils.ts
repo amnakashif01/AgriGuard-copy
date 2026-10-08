@@ -6,11 +6,23 @@ export type VisualHighlight = { boundingBox: number[]; reasoning: string };
 // one-pass reports incorrectly used visualHighlightsReviewed=true as completion.
 export const HIGHLIGHT_REVIEW_VERSION = 1;
 export function needsHighlightReview(report: Partial<DiagnosisReport>): boolean {
+    // Hybrid reports already localize symptoms in the initial image request.
+    // Opening a saved report must not trigger another billable/fallible AI call.
     return report.status === 'Complete'
+        && report.cropEvidence?.version !== 2
         && report.visualHighlightsReviewVersion !== HIGHLIGHT_REVIEW_VERSION
         && report.severity !== 'None'
         && !/healthy|not a crop|not a plant/i.test(report.disease || '')
         && Boolean(report.imageUrl || report.imageThumb);
+}
+
+export function getReportAnalysisImage(report: Partial<DiagnosisReport>): string | undefined {
+    return report.analysisImage || report.imageUrl || report.imageThumb;
+}
+
+export function getReportRequestedCrop(report: Partial<DiagnosisReport>): string {
+    // A previous prediction is not user evidence. Legacy reports keep auto-detect.
+    return report.requestedCrop || (isTrackedPlantReport(report) ? report.crop : undefined) || 'Unknown Crop';
 }
 
 export function mergeVisualHighlights(primary: VisualHighlight[], localized: VisualHighlight[]): VisualHighlight[] {
