@@ -3,24 +3,27 @@ from contract import BASE_ID, BASE_REVISION, MODEL_ID, MODEL_REVISION, build_pro
 
 
 class AgriChatEngine:
-    def __init__(self):
+    def __init__(self, zerogpu=False):
         import torch
         from transformers import AutoProcessor, BitsAndBytesConfig, LlavaOnevisionForConditionalGeneration
         from peft import PeftModel
 
-        if not torch.cuda.is_available():
+        if not zerogpu and not torch.cuda.is_available():
             raise RuntimeError("AgriChat requires a CUDA GPU; CPU fallback is disabled")
         self.torch = torch
-        self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        # ZeroGPU emulates CUDA at module load and supplies the real GPU only
+        # inside @spaces.GPU. Avoid probing a physical device during that phase.
+        self.dtype = torch.bfloat16 if zerogpu or torch.cuda.is_bf16_supported() else torch.float16
+        quantization = {} if zerogpu else {"quantization_config": BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=self.dtype, bnb_4bit_use_double_quant=True,
+        )}
         self.processor = AutoProcessor.from_pretrained(BASE_ID, revision=BASE_REVISION, trust_remote_code=False)
         base = LlavaOnevisionForConditionalGeneration.from_pretrained(
             BASE_ID, revision=BASE_REVISION, trust_remote_code=False, use_safetensors=True,
             torch_dtype=self.dtype, low_cpu_mem_usage=True, device_map={"": 0},
             attn_implementation="sdpa",
-            quantization_config=BitsAndBytesConfig(
-                load_in_4bit=True, bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=self.dtype, bnb_4bit_use_double_quant=True,
-            ),
+            **quantization,
         )
         self.model = PeftModel.from_pretrained(base, MODEL_ID, revision=MODEL_REVISION, is_trainable=False)
         self.model.eval()

@@ -69,7 +69,7 @@ export type ReportHistoryEntry = {
 export type DiagnosisReport = {
   inference?: {
     provider: 'agrichat'; model: string; revision: string;
-    baseModel: string; baseRevision: string; quantization: 'nf4';
+    baseModel: string; baseRevision: string; quantization: 'nf4' | 'none';
     confidenceType: 'model-estimate';
   };
   id: string;

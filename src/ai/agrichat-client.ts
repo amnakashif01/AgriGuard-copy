@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { withAiDeadline } from '@/lib/ai-request';
+import { requestZeroGpu } from './agrichat-zerogpu';
 
 // Server-side only: imported by the diagnosis server action, never by browser code.
 export const AgriChatFindingsSchema = z.object({
@@ -20,7 +21,7 @@ export const AgriChatSourceSchema = z.object({
   revision: z.literal('e313815109845f699eb89ed51015375ccca2e9c2'),
   baseModel: z.literal('llava-hf/llava-onevision-qwen2-7b-ov-hf'),
   baseRevision: z.literal('0d50680527681998e456c7b78950205bedd8a068'),
-  quantization: z.literal('nf4'),
+  quantization: z.enum(['nf4', 'none']),
   confidenceType: z.literal('model-estimate'),
 }).strict();
 
@@ -49,14 +50,22 @@ export async function requestAgriChat(input: {
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
     throw new Error('AgriChat endpoint must be a private HTTPS API endpoint without URL credentials.');
   }
+  const transport = process.env.AGRICHAT_TRANSPORT || 'http';
+  if (!['http', 'zerogpu'].includes(transport)) throw new Error('AgriChat transport is not configured correctly.');
+  const payload = { photoDataUri: input.photoDataUri, symptoms: input.symptoms,
+    crop: input.crop || 'Unknown Crop', language: input.language || 'english' };
   return withAiDeadline(async signal => {
+    if (transport === 'zerogpu') {
+      const parsed = ResponseSchema.safeParse(await requestZeroGpu(url, key, payload, signal));
+      if (!parsed.success) throw new Error('AgriChat returned an invalid result. Please retry.');
+      return parsed.data;
+    }
     const response = await fetch(url, {
       method: 'POST', redirect: 'error', cache: 'no-store', signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       // My Crops passes age alongside this input. Send only the service contract,
       // never record IDs, previous reports, user credentials, or arbitrary extras.
-      body: JSON.stringify({ photoDataUri: input.photoDataUri, symptoms: input.symptoms,
-        crop: input.crop || 'Unknown Crop', language: input.language || 'english' }),
+      body: JSON.stringify(payload),
     });
     // Never return provider error bodies (which can contain prompts or internal paths).
     if (response.status === 401 || response.status === 403) throw new Error('AgriChat authentication is not configured correctly.');
@@ -67,5 +76,5 @@ export async function requestAgriChat(input: {
     const parsed = ResponseSchema.safeParse(await response.json());
     if (!parsed.success) throw new Error('AgriChat returned an invalid result. Please retry.');
     return parsed.data;
-  }, 35000);
+  }, transport === 'zerogpu' ? 45000 : 35000);
 }

@@ -6,6 +6,12 @@ app_port: 8000
 
 # AgriChat diagnosis service — staged integration
 
+**Current requirement: zero spending.** Use the free ZeroGPU route documented in
+[`README.zerogpu.md`](README.zerogpu.md). The dedicated-GPU instructions below are
+reference material only; do not provision paid hardware or add billing. The free
+route has a separate Gradio transport and still needs an eligible user account
+and a measured 15-report test before activation.
+
 **Not activated in production. Actual GPU inference, model accuracy, Docker image
 startup, and end-to-end latency are unverified until a GPU host is connected.**
 The existing website defaults to Gemini until explicitly configured otherwise.
@@ -98,7 +104,7 @@ node --import tsx --test tests/agrichat.test.ts tests/report-speed.test.ts \
 npm run typecheck
 # In services/agrichat, with the small test dependencies installed:
 python -m pip install fastapi==0.115.12 pydantic==2.11.5 Pillow==12.1.0 httpx==0.28.1
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests -p test_service.py -v
 ```
 
 Then test the **real GPU endpoint** with unseen, expert-labeled photographs from
