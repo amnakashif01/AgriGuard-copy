@@ -25,7 +25,7 @@ import { sendDiagnosisComplete } from '@/lib/notifications';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
-import { findPreviousReport, isPlanEligible } from "@/lib/report-utils";
+import { findTrackedPreviousReport, isPlanEligible, isTrackedPlantReport } from "@/lib/report-utils";
 import { needsHighlightReview } from "@/lib/report-utils";
 import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import SuppliersCard from "@/components/agrisahayak/suppliers-card";
@@ -148,7 +148,7 @@ export default function ReportDetailPage() {
     useEffect(() => {
         if (!user || !db || !rawReport) return;
 
-        if (rawReport.status !== 'Complete') {
+        if (!isTrackedPlantReport(rawReport) || rawReport.status !== 'Complete') {
             setPreviousReport(null);
             return;
         }
@@ -168,7 +168,7 @@ export default function ReportDetailPage() {
 
                 const querySnapshot = await getDocs(q);
                 const candidates = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as DiagnosisReport));
-                const prev = findPreviousReport(candidates, rawReport);
+                const prev = findTrackedPreviousReport(candidates, rawReport);
                 
                 if (!cancel) {
                     setPreviousReport(prev || null);
@@ -180,7 +180,7 @@ export default function ReportDetailPage() {
 
         loadComparison();
         return () => { cancel = true; };
-    }, [user, db, rawReport?.id, rawReport?.fieldId, rawReport?.crop, rawReport?.createdAt, rawReport?.status]);
+    }, [user, db, rawReport?.id, rawReport?.fieldId, rawReport?.crop, rawReport?.createdAt, rawReport?.status, rawReport?.cropId, rawReport?.plantId]);
 
     // Helper: fetch image URL and convert to data URI
     async function urlToDataUri(url: string) {
@@ -197,7 +197,7 @@ export default function ReportDetailPage() {
 
     useEffect(() => {
         if (!user) return;
-        const candidates = [rawReport, previousReport].filter((candidate): candidate is DiagnosisReport =>
+        const candidates = [rawReport, isTrackedPlantReport(rawReport) ? previousReport : null].filter((candidate): candidate is DiagnosisReport =>
             Boolean(candidate && needsHighlightReview(candidate)
                 && !highlightReviewInFlightRef.current.has(candidate.id))
         );
@@ -519,7 +519,7 @@ export default function ReportDetailPage() {
             </Card>
 
             {/* Direct Inline Comparison / Trend Analysis */}
-            {previousReport && (
+            {isTrackedPlantReport(report) && previousReport && (
                 <Card>
                     <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
                         <div>

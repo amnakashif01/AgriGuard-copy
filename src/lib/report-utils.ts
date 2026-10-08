@@ -63,6 +63,11 @@ export function isPlanEligible(report: Partial<DiagnosisReport>): boolean {
         && !invalidDisease;
 }
 
+/** Only named plants in My Crops have a comparison history. */
+export function isTrackedPlantReport(report: Partial<DiagnosisReport> | null | undefined): boolean {
+    return Boolean(report?.cropId?.trim() && report?.plantId?.trim());
+}
+
 export function findPreviousReport(
     reports: DiagnosisReport[],
     current: DiagnosisReport
@@ -80,4 +85,9 @@ export function findPreviousReport(
             && normalizeLabel(candidate.crop) === currentCrop
             && timestampToMillis(candidate.createdAt) < currentTime)
         .sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt))[0] || null;
+}
+
+/** Standalone diagnosis pages must never look up another report for comparison. */
+export function findTrackedPreviousReport(reports: DiagnosisReport[], current: DiagnosisReport): DiagnosisReport | null {
+    return isTrackedPlantReport(current) ? findPreviousReport(reports, current) : null;
 }

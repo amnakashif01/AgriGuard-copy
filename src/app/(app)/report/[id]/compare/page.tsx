@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth, useFirebase } from "@/firebase";
 import { getDoc, doc, collection, query, where, getDocs } from "firebase/firestore";
 import { DiagnosisReport } from "@/lib/models";
-import { findPreviousReport, needsHighlightReview } from "@/lib/report-utils";
+import { findTrackedPreviousReport, needsHighlightReview, isTrackedPlantReport } from "@/lib/report-utils";
 import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import CropImageHighlights from "@/components/agrisahayak/crop-image-highlights";
 import { ArrowLeft, ArrowRight, ShieldAlert, CheckCircle, Shield, Calendar, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export default function CompareReportPage() {
     const { user } = useAuth();
     const { db } = useFirebase();
     const params = useParams();
+    const router = useRouter();
     const currentId = params.id as string;
 
     const [currentReport, setCurrentReport] = useState<DiagnosisReport | null>(null);
@@ -43,6 +44,10 @@ export default function CompareReportPage() {
                 if (cancelled) return;
                 setCurrentReport(currData);
                 setPreviousReport(null);
+                if (!isTrackedPlantReport(currData)) {
+                    router.replace(`/report/${currentId}`);
+                    return;
+                }
                 if (currData.status !== 'Complete') return;
 
                 // Find previous report for the same crop (and field if we have it)
@@ -60,7 +65,7 @@ export default function CompareReportPage() {
 
                 const querySnapshot = await getDocs(q);
                 const candidates = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as DiagnosisReport));
-                const previous = findPreviousReport(candidates, currData);
+                const previous = findTrackedPreviousReport(candidates, currData);
                 if (cancelled) return;
                 setPreviousReport(previous);
 
@@ -93,9 +98,9 @@ export default function CompareReportPage() {
 
         loadComparison();
         return () => { cancelled = true; };
-    }, [user, db, currentId]);
+    }, [user, db, currentId, router]);
 
-    if (loading) {
+    if (loading || (currentReport && !isTrackedPlantReport(currentReport))) {
         return <div className="p-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
     }
 

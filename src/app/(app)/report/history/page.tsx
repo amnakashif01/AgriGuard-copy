@@ -1,5 +1,7 @@
 "use client";
 
+import { isTrackedPlantReport } from "@/lib/report-utils";
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@/firebase";
 import { listRecentReports } from "@/lib/repositories";
@@ -177,9 +179,9 @@ export default function ReportHistoryPage() {
                                         <div className="mt-4 pt-4 border-t flex justify-between items-center">
                                             <span className="text-xs text-gray-400 font-mono">ID: {report.id.substring(0,8)}...</span>
                                             <div className="flex gap-2">
-                                                <Button asChild size="sm" variant="outline">
+                                                {isTrackedPlantReport(report) && <Button asChild size="sm" variant="outline">
                                                     <Link href={`/report/${report.id}/compare`}>Compare</Link>
-                                                </Button>
+                                                </Button>}
                                                 <Button asChild size="sm">
                                                     <Link href={`/report/${report.id}`}>
                                                         View Full Details <ArrowRight className="w-4 h-4 ml-2" />
