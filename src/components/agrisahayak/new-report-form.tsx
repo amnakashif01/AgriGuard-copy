@@ -226,7 +226,11 @@ export default function NewReportForm() {
                     ...(selectedField !== 'none' && selectedField ? { fieldId: selectedField } : {}),
                 } as any),
                 createThumbnailDataUri(imageFile, 480, 0.65),
-                compressImage(imageFile, 1024, 0.8),
+                // Keep small originals intact: repeated JPEG encoding can erase
+                // subtle disease texture and change detector confidence substantially.
+                imageFile.size <= 2 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)
+                    ? Promise.resolve(imageFile)
+                    : compressImage(imageFile, 1280, 0.92),
             ]);
             reportId = newReportId;
             console.log("Phase 1 complete — Report ID:", reportId);

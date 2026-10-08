@@ -45,6 +45,12 @@ quotas remain applicable; free infrastructure cannot promise unlimited availabil
 6. Persist server-created `cropEvidence` with the report. The UI displays either
    `YOLO11 + Gemini review` or `Gemini fallback`, not two competing diagnoses.
 
+Small JPEG/PNG/WebP uploads (at most 2 MiB) retain their original bytes for
+inference. Larger images are resized to width 1280 at JPEG quality 0.92. In a
+regression check, re-encoding a maize leaf at JPEG quality 80 reduced its score
+from 90.19 to 47.78. This sensitivity is another reason not to claim robust,
+validated accuracy. Display thumbnails remain separate from analysis inputs.
+
 Most initial reports use one Gemini request. A strong candidate rejected during
 image review needs a second request for independent assessment. Existing optional
 image-highlight review is separate. A failure never becomes fabricated model
