@@ -30,9 +30,9 @@ const ResponseSchema = z.object({
   inference: AgriChatSourceSchema,
 }).strict();
 
-export function diagnosisProvider(): 'gemini' | 'agrichat' {
-  const provider = process.env.CROP_DIAGNOSIS_PROVIDER || 'gemini';
-  if (provider !== 'gemini' && provider !== 'agrichat') {
+export function diagnosisProvider(): 'gemini' | 'agrichat' | 'hybrid' {
+  const provider = process.env.CROP_DIAGNOSIS_PROVIDER || 'hybrid';
+  if (provider !== 'gemini' && provider !== 'agrichat' && provider !== 'hybrid') {
     throw new Error('Crop diagnosis provider is not configured correctly.');
   }
   return provider;

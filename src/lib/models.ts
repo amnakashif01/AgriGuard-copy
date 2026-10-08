@@ -67,6 +67,7 @@ export type ReportHistoryEntry = {
 };
 
 export type DiagnosisReport = {
+  modelAssessment?: import('./plant-model').PlantModelAssessment;
   inference?: {
     provider: 'agrichat'; model: string; revision: string;
     baseModel: string; baseRevision: string; quantization: 'nf4' | 'none';

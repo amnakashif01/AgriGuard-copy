@@ -1,0 +1,89 @@
+{
+  "model": "MobileNetV2 PlantVillage ONNX",
+  "scope": "Small integration sanity check, not a clinical/field accuracy estimate. PlantVillage samples may overlap training data.",
+  "tested": 8,
+  "matched": 7,
+  "meanMs": 20.5,
+  "results": [
+    {
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___Early_blight/0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B%208389.JPG",
+      "dataset": "PlantVillage",
+      "expected": "Tomato with Early Blight",
+      "predicted": "Tomato with Early Blight",
+      "score": 83.94,
+      "matched": true,
+      "elapsedMs": 78,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___healthy/000146ff-92a4-4db6-90ad-8fce2ae4fddd___GH_HL%20Leaf%20259.1.JPG",
+      "dataset": "PlantVillage",
+      "expected": "Healthy Tomato Plant",
+      "predicted": "Healthy Tomato Plant",
+      "score": 100,
+      "matched": true,
+      "elapsedMs": 13,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Corn_(maize)___Common_rust_/RS_Rust%201563.JPG",
+      "dataset": "PlantVillage",
+      "expected": "Corn (Maize) with Common Rust",
+      "predicted": "Corn (Maize) with Common Rust",
+      "score": 99.89,
+      "matched": true,
+      "elapsedMs": 10,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Potato___Late_blight/0051e5e8-d1c4-4a84-bf3a-a426cdad6285___RS_LB%204640.JPG",
+      "dataset": "PlantVillage",
+      "expected": "Potato with Late Blight",
+      "predicted": "Potato with Late Blight",
+      "score": 66.84,
+      "matched": true,
+      "elapsedMs": 10,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20Early%20blight%20leaf/039b47d574bc4bb8a14259a1cd96a741.jpg",
+      "dataset": "PlantDoc test",
+      "expected": "Tomato with Early Blight",
+      "predicted": "Tomato with Early Blight",
+      "score": 50.68,
+      "matched": true,
+      "elapsedMs": 15,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Corn%20rust%20leaf/0796.39maizerust.jpg",
+      "dataset": "PlantDoc test",
+      "expected": "Corn (Maize) with Common Rust",
+      "predicted": "Corn (Maize) with Common Rust",
+      "score": 63.51,
+      "matched": true,
+      "elapsedMs": 11,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Potato%20leaf%20late%20blight/1421_0.jpeg%3Fitok%3DFMtmgePj.jpg",
+      "dataset": "PlantDoc test",
+      "expected": "Potato with Late Blight",
+      "predicted": "Potato with Late Blight",
+      "score": 77.51,
+      "matched": true,
+      "elapsedMs": 12,
+      "status": "predicted"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20leaf/1684.jpg",
+      "dataset": "PlantDoc test",
+      "expected": "Healthy Tomato Plant",
+      "predicted": "Squash with Powdery Mildew",
+      "score": 38.5,
+      "matched": false,
+      "elapsedMs": 15,
+      "status": "predicted"
+    }
+  ]
+}

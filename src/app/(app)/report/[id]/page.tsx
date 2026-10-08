@@ -29,6 +29,7 @@ import { findTrackedPreviousReport, isPlanEligible, isTrackedPlantReport } from 
 import { needsHighlightReview } from "@/lib/report-utils";
 import { reviewReportHighlights } from "@/lib/report-highlight-review";
 import SuppliersCard from "@/components/agrisahayak/suppliers-card";
+import PlantModelAssessment from '@/components/agrisahayak/plant-model-assessment';
 
 /** Safely parse any timestamp to a readable string */
 function formatTs(ts: any): string {
@@ -264,6 +265,7 @@ export default function ReportDetailPage() {
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
                 inference: diagnosis.inference || deleteField(),
+                modelAssessment: diagnosis.modelAssessment || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
@@ -332,6 +334,7 @@ export default function ReportDetailPage() {
                 description: diagnosis.description,
                 visualHighlights: diagnosis.visualHighlights,
                 inference: diagnosis.inference || deleteField(),
+                modelAssessment: diagnosis.modelAssessment || deleteField(),
                 visualHighlightsReviewed: false,
                 visualHighlightsReviewVersion: 0,
                 expertReviewRequired: diagnosis.expertReviewRequired,
@@ -519,6 +522,8 @@ export default function ReportDetailPage() {
                     </div>
                 </CardHeader>
             </Card>
+
+            {report.modelAssessment && <PlantModelAssessment assessment={report.modelAssessment} />}
 
             {/* Direct Inline Comparison / Trend Analysis */}
             {isTrackedPlantReport(report) && previousReport && (

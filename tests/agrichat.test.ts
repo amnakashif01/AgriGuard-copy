@@ -12,7 +12,7 @@ test('AgriChat integration: provider selection, errors, provenance and Gemini su
   const env = { ...process.env };
   try {
     delete process.env.CROP_DIAGNOSIS_PROVIDER;
-    assert.equal(diagnosisProvider(), 'gemini', 'unchanged behavior until explicitly activated');
+    assert.equal(diagnosisProvider(), 'hybrid', 'local model plus Gemini review is the free default');
     process.env.CROP_DIAGNOSIS_PROVIDER = 'typo';
     assert.throws(diagnosisProvider, /not configured/);
     process.env.CROP_DIAGNOSIS_PROVIDER = 'agrichat';
