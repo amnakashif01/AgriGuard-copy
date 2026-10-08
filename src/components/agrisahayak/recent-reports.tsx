@@ -13,12 +13,13 @@ import { MoreHorizontal, Clock, AlertCircle, CheckCircle, Loader2, RefreshCw, Bo
 import { useEffect, useState } from "react";
 import { useAuth } from "@/firebase";
 import { getProfile, listRecentReports, updateReport, createLog } from "@/lib/repositories";
-import { instantDiagnosisFromImageAndSymptoms } from "@/ai/flows/instant-diagnosis-from-image-and-symptoms";
+import { diagnoseCrop } from "@/lib/actions/diagnosis-actions";
+import ReportModelBadge from "./report-model-badge";
 
 import LoadingSpinner from "./loading-spinner";
 import { useToast } from "@/hooks/use-toast";
 import { deleteField } from "firebase/firestore";
-import { isPlanEligible } from "@/lib/report-utils";
+import { getReportAnalysisImage, getReportRequestedCrop, isPlanEligible } from "@/lib/report-utils";
 import { sendDiagnosisComplete } from "@/lib/notifications";
 
 /** Safely format a date from Firestore Timestamp OR ISO string */
@@ -148,7 +149,7 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
     };
 
     const handleRetryDiagnosis = async (report: DiagnosisReport) => {
-        if (!user || !report.imageUrl && !report.imageThumb) {
+        if (!user || !getReportAnalysisImage(report)) {
             toast({
                 title: "Cannot Retry",
                 description: "No image available for diagnosis retry.",
@@ -164,7 +165,7 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
             await updateReport(user.uid, report.id, { status: 'Processing' });
             
             // Get image data
-            const imageSrc = report.imageUrl || report.imageThumb;
+            const imageSrc = getReportAnalysisImage(report);
             if (!imageSrc) throw new Error('No image available');
 
             let photoDataUri: string;
@@ -173,6 +174,7 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
             } else {
                 // Convert URL to data URI
                 const response = await fetch(imageSrc);
+                if (!response.ok) throw new Error('Unable to load the saved crop image.');
                 const blob = await response.blob();
                 photoDataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
@@ -182,20 +184,15 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
                 });
             }
 
-            // Create a 30-second timeout promise
-            const timeoutPromise = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error("Diagnosis request timed out after 30 seconds. Please try again.")), 30000)
-            );
-
-            // Run AI diagnosis with timeout
-            const diagnosis = await Promise.race([
-                instantDiagnosisFromImageAndSymptoms({
-                    photoDataUri,
-                    symptoms: report.symptoms || '',
-                    language: profile?.language || 'english'
-                }),
-                timeoutPromise
-            ]);
+            // Use the same bounded server action and preserved image as the report page.
+            const result = await diagnoseCrop({
+                photoDataUri,
+                symptoms: report.symptoms || '',
+                crop: getReportRequestedCrop(report),
+                language: profile?.language || 'english'
+            });
+            if (!result.ok) throw new Error(result.error);
+            const diagnosis = result.diagnosis;
 
             const isNotCrop = diagnosis.disease?.toLowerCase().includes('not a crop');
             const planEligible = isPlanEligible({
@@ -209,6 +206,12 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
                 crop: diagnosis.crop,
                 disease: diagnosis.disease,
                 confidence: diagnosis.confidence,
+                severityScore: diagnosis.severityScore ?? null,
+                severityExplanation: diagnosis.severityExplanation || '',
+                cropEvidence: diagnosis.cropEvidence || deleteField(),
+                inference: diagnosis.inference || deleteField(),
+                modelAssessment: diagnosis.modelAssessment || deleteField(),
+                translations: deleteField(),
                 affectedParts: diagnosis.affectedParts,
                 severity: diagnosis.severity,
                 description: diagnosis.description,
@@ -259,6 +262,10 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
                     ? {
                         ...r,
                         ...diagnosis,
+                        cropEvidence: diagnosis.cropEvidence,
+                        inference: diagnosis.inference,
+                        modelAssessment: diagnosis.modelAssessment,
+                        translations: undefined,
                         plan: planEligible ? plan : null,
                         protectionPlan: planEligible ? diagnosis.protectionPlan : undefined,
                         status: 'Complete' as const,
@@ -286,7 +293,7 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
 
             toast({
                 title: "Retry Failed",
-                description: "Could not complete diagnosis retry. Please try again later.",
+                description: error?.message || "Could not complete diagnosis retry. Please try again later.",
                 variant: "destructive"
             });
         } finally {
@@ -367,7 +374,11 @@ export default function RecentReports({ reports, setReports, loading }: RecentRe
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-medium">
-                                        {getCropDisplay(report)}
+                                        <div className="space-y-2">
+                                            {getCropDisplay(report)}
+                                            <div className="text-xs font-normal text-muted-foreground md:hidden">{getDiagnosisDisplay(report)}</div>
+                                            <ReportModelBadge report={report} />
+                                        </div>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         {getDiagnosisDisplay(report)}

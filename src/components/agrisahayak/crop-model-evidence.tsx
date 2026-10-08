@@ -1,40 +1,78 @@
+'use client';
+
+import React, {useId, useState} from 'react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
-import {ScanSearch} from 'lucide-react';
+import {ChevronDown, CircleDot, Info, ScanSearch, Sparkles} from 'lucide-react';
 import {DETECTOR_SOURCE, DETECTOR_MIN_SCORE, type CropEvidence} from '@/lib/crop-detector';
 
 export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEvidence; imageUrl?:string}) {
-  const confirmed = evidence.route === 'model_assisted' && Boolean(evidence.accepted);
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
+  const accepted = evidence.route === 'model_assisted' ? evidence.accepted : undefined;
+  const confirmed = Boolean(accepted);
   const regions = confirmed ? evidence.detector.detections.filter(d=>d.score>=DETECTOR_MIN_SCORE) : [];
-  return <Card className="border-emerald-200 dark:border-emerald-900">
-    <CardHeader className="pb-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <CardTitle className="flex items-center gap-2 text-lg"><ScanSearch className="h-5 w-5"/>How this report was made</CardTitle>
-        <Badge variant="outline">{confirmed ? 'YOLO11 + Gemini review' : 'Gemini fallback'}</Badge>
+  return <Card className="overflow-hidden border-emerald-300 bg-gradient-to-br from-emerald-50/80 to-white shadow-sm dark:border-emerald-800 dark:from-emerald-950/40 dark:to-background">
+    <CardHeader className="gap-2 p-4 pb-3 sm:p-6 sm:pb-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="flex items-start gap-3 text-lg leading-snug text-emerald-950 sm:text-xl dark:text-emerald-100">
+          <ScanSearch aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700 dark:text-emerald-400"/>
+          Model used for this diagnosis
+        </CardTitle>
+        <button type="button" aria-expanded={expanded} aria-controls={detailsId} onClick={()=>setExpanded(value=>!value)} className="inline-flex min-h-10 shrink-0 items-center gap-2 self-start rounded-md px-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-200 dark:hover:bg-emerald-900/50 sm:self-auto">
+          {expanded ? 'Hide model details' : 'View model details'}
+          <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`}/>
+        </button>
       </div>
     </CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      <p>{evidence.reason}</p>
-      <p className="text-xs leading-relaxed text-muted-foreground">Severity and red symptom circles are Gemini visual estimates. The detector identifies leaf regions; its score is not a measured accuracy or percentage of disease.</p>
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Model details{regions.length ? ' and detected leaf regions' : ''}</summary>
-        <div className="mt-3 space-y-2">
-          <p>YOLO11m trained on PlantDoc · 29 leaf categories · server CPU processing: {(evidence.detector.elapsedMs / 1000).toFixed(2)} s.</p>
-          <p>This model recognizes 29 leaf categories. Fruit rot, ear or stem diseases, Fall Armyworm and unlisted crops are outside its trained scope. A Gemini fallback result is not a diagnosis from this leaf model.</p>
-          {evidence.reviewReason && <p>Image review: {evidence.reviewReason}</p>}
-          <a href={DETECTOR_SOURCE} target="_blank" rel="noreferrer" className="underline">Model source and pinned version (AGPL-3.0)</a>
-          <p><a href="https://github.com/amnakashif01/AgriGuard-copy" target="_blank" rel="noreferrer" className="underline">Application integration source</a></p>
-          {imageUrl && regions.length > 0 && <>
-            <p>Green boxes show detected leaves, not the diseased area.</p>
-            <div className="relative mx-auto max-w-xl overflow-hidden rounded-lg">
-              {/* Native dimensions keep the normalized overlay aligned without cropping. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="Crop photo with model-detected leaf regions" className="block h-auto w-full"/>
-              {regions.map((r,i)=><div key={i} aria-hidden="true" className="pointer-events-none absolute border-2 border-emerald-500" style={{top:`${r.box[0]/10}%`,left:`${r.box[1]/10}%`,height:`${(r.box[2]-r.box[0])/10}%`,width:`${(r.box[3]-r.box[1])/10}%`}} />)}
+    <CardContent className="space-y-3 p-4 pt-0 sm:p-6 sm:pt-0">
+      <div className="rounded-xl border border-emerald-100 bg-white/80 px-4 dark:border-emerald-900 dark:bg-background/70 sm:px-5">
+        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            {confirmed ? <CircleDot aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-emerald-800 dark:text-emerald-400"/> : <Sparkles aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-emerald-800 dark:text-emerald-400"/>}
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <p className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl dark:text-slate-100">{confirmed ? 'YOLO11m · PlantDoc' : 'Gemini'}</p>
+                <Badge variant="outline" className={confirmed ? 'border-emerald-200 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900 dark:text-emerald-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100'}>{confirmed ? 'Diagnosis model' : 'Gemini fallback'}</Badge>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{confirmed ? 'Identified the crop and leaf condition' : 'Provided the image assessment and care report'}</p>
             </div>
-          </>}
+          </div>
+          {accepted && Number.isFinite(accepted.score) && <div className="flex items-baseline justify-between gap-3 border-t border-emerald-100 pt-3 sm:block sm:min-w-32 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0 dark:border-emerald-900">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Detector score</p>
+            <p className="text-xl font-bold tabular-nums text-slate-950 sm:mt-0.5 sm:text-2xl dark:text-white">{accepted.score.toFixed(2)}%</p>
+          </div>}
         </div>
-      </details>
+        <div className="flex items-start gap-3 border-t border-emerald-100 py-4 dark:border-emerald-900">
+          {confirmed ? <Sparkles aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-emerald-800 dark:text-emerald-400"/> : <ScanSearch aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-slate-500"/>}
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-slate-950 sm:text-lg dark:text-slate-100">{confirmed ? 'Gemini' : 'YOLO11m · PlantDoc'}</p>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{confirmed ? 'Image review, estimated severity & care plan' : evidence.reason}</p>
+          </div>
+        </div>
+      </div>
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+        <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
+        <span>{confirmed && 'Detector score is not measured accuracy. '}Severity and red circles are Gemini visual estimates.</span>
+      </p>
+      <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-emerald-200 pt-4 text-sm leading-relaxed text-slate-600 dark:border-emerald-800 dark:text-slate-300">
+        <p>YOLO11m trained on PlantDoc · 29 leaf categories · server CPU processing: {(evidence.detector.elapsedMs / 1000).toFixed(2)} s.</p>
+        <p>Fruit rot, ear or stem diseases, Fall Armyworm and unlisted crops are outside its trained scope. A Gemini fallback result is not a diagnosis from this leaf model.</p>
+        {evidence.reviewReason && <p>Image review: {evidence.reviewReason}</p>}
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5">
+          <a href={DETECTOR_SOURCE} target="_blank" rel="noreferrer" className="font-medium text-emerald-800 underline underline-offset-4 dark:text-emerald-300">Model source and pinned version (AGPL-3.0)</a>
+          <a href="https://github.com/amnakashif01/AgriGuard-copy" target="_blank" rel="noreferrer" className="font-medium text-emerald-800 underline underline-offset-4 dark:text-emerald-300">Application integration source</a>
+        </div>
+        {expanded && imageUrl && regions.length > 0 && <>
+          <p>Green boxes show detected leaves, not the diseased area.</p>
+          <div className="relative mx-auto max-w-xl overflow-hidden rounded-lg">
+            {/* Native image dimensions keep normalized overlays aligned without cropping. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt="Crop photo with model-detected leaf regions" className="block h-auto w-full"/>
+            {regions.map((r,i)=><div key={i} aria-hidden="true" className="pointer-events-none absolute border-2 border-emerald-500" style={{top:`${r.box[0]/10}%`,left:`${r.box[1]/10}%`,height:`${(r.box[2]-r.box[0])/10}%`,width:`${(r.box[3]-r.box[1])/10}%`}} />)}
+          </div>
+        </>}
+      </div>
     </CardContent>
   </Card>;
 }
