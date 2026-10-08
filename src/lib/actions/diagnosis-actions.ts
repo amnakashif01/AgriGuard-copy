@@ -18,6 +18,10 @@ export async function diagnoseCrop(input: InstantDiagnosisFromImageAndSymptomsIn
       reason = 'AI diagnosis is not configured correctly. The site owner must update the Gemini API key in Vercel.';
     } else if (/429|quota|rate.limit/.test(message)) {
       reason = 'The AI service has reached its usage limit. Please try again later.';
+    } else if (/schema|validation|parse|json|empty|no result/.test(message)) {
+      reason = 'The AI service returned an incomplete report. Your saved photo is safe; please retry.';
+    } else if (/503|502|500|unavailable|overloaded|fetch failed|econnreset/.test(message)) {
+      reason = 'The AI service is temporarily busy. Your saved photo is safe; please retry shortly.';
     } else if (/not found|not supported/.test(message)) {
       reason = 'The configured AI model is unavailable. Please contact the site owner.';
     }

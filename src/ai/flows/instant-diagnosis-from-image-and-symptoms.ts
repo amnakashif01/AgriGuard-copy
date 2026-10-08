@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { vectorSearch } from "@/lib/vector-search";
-import { withAiDeadline } from '@/lib/ai-request';
+import { withAiDeadline, withAiResponseRetry } from '@/lib/ai-request';
 import { AgriChatSourceSchema, diagnosisProvider, requestAgriChat } from '@/ai/agrichat-client';
 import { PlantModelAssessmentSchema, PlantModelReviewSchema } from '@/lib/plant-model';
 
@@ -108,9 +108,11 @@ export type InstantDiagnosisFromImageAndSymptomsOutput = z.infer<
 export async function localizeDiagnosisHighlights(
   input: z.infer<typeof VisualLocalizationInputSchema>
 ): Promise<InstantDiagnosisFromImageAndSymptomsOutput['visualHighlights']> {
-  const { output } = await withAiDeadline(signal => visualLocalizationPrompt(input, { abortSignal: signal }), 30000);
-  if (!output) throw new Error('The image detail check returned no result. Please retry.');
-  return output.visualHighlights;
+  return withAiResponseRetry(async signal => {
+    const { output } = await visualLocalizationPrompt(input, { abortSignal: signal });
+    if (!output) throw new Error('The image detail check returned no result. Please retry.');
+    return output.visualHighlights;
+  }, 30000);
 }
 
 export async function instantDiagnosisFromImageAndSymptoms(
@@ -143,13 +145,15 @@ export async function instantDiagnosisFromImageAndSymptoms(
     return resolveDetectorDiagnosis(input, {
       detect: detectCropLeaves,
       support: async evidence => {
-        const { output } = await withAiDeadline(signal => detectorSupportPrompt({
-          photoDataUri: input.photoDataUri, symptoms: input.symptoms,
-          language: input.language || 'english',
-          findings: JSON.stringify({ ...evidence.accepted, leafRegions: evidence.detector.detections.filter(d => d.score >= 80) }),
-        }, { abortSignal: signal }));
-        if (!output) throw new Error('The image review returned no result. Please retry.');
-        return output;
+        return withAiResponseRetry(async signal => {
+          const { output } = await detectorSupportPrompt({
+            photoDataUri: input.photoDataUri, symptoms: input.symptoms,
+            language: input.language || 'english',
+            findings: JSON.stringify({ ...evidence.accepted, leafRegions: evidence.detector.detections.filter(d => d.score >= 80) }),
+          }, { abortSignal: signal });
+          if (!output) throw new Error('The image review returned no result. Please retry.');
+          return output;
+        });
       },
       fallback: async () => {
         // Rejected labels are never passed to this independent assessment.

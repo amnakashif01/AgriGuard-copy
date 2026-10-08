@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { withAiDeadline } from '../src/lib/ai-request';
+import { withAiDeadline, withAiResponseRetry } from '../src/lib/ai-request';
 
 test('a stalled AI call is aborted and returns a retryable timeout', async () => {
   let aborted = false;
@@ -48,4 +48,34 @@ test('diagnosis, plans, severity and markers use one model call; rate limits fai
     if (!limited.ok) assert.match(limited.error, /usage limit/);
     assert.equal(generations, 2, 'a quota error is not repeatedly retried');
   } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test('support response failure retries once, successful requests stay single-call', async () => {
+  let calls = 0;
+  assert.equal(await withAiResponseRetry(async () => {
+    if (++calls === 1) throw new Error('Structured output JSON parse failed');
+    return 'confirmed support';
+  }), 'confirmed support');
+  assert.equal(calls, 2);
+  calls = 0;
+  assert.equal(await withAiResponseRetry(async () => { calls++; return 'ready'; }), 'ready');
+  assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(withAiResponseRetry(async () => { calls++; throw new Error('503 unavailable'); }), /503/);
+  assert.equal(calls, 2, 'recovery is bounded to one retry');
+});
+
+test('support retries never repeat quota/auth/configuration errors or extend the deadline', async () => {
+  for (const message of ['429 Quota exceeded', 'API key invalid', 'INVALID_ARGUMENT', 'SAFETY blocked']) {
+    let calls = 0;
+    await assert.rejects(withAiResponseRetry(async () => { calls++; throw new Error(message); }));
+    assert.equal(calls, 1, message);
+  }
+  let aborted = false;
+  await assert.rejects(withAiResponseRetry(signal => {
+    signal.addEventListener('abort', () => { aborted = true; });
+    return new Promise<never>(() => {});
+  }, 20), /taking longer/);
+  assert.equal(aborted, true);
 });
