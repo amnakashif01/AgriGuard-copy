@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { comparePlantRecords, completedPlantRecords } from '../src/lib/my-crops/record-comparison';
-import { PlantProgressComparison, RecordChange, PairComparisonDetails } from '../src/components/my-crops/record-comparison';
-import { plantComparisonHistory, resolveComparisonPair } from '../src/lib/my-crops/comparison-history';
+import { PlantProgressComparison, RecordChange, PairComparisonDetails, ComparisonCards } from '../src/components/my-crops/record-comparison';
+import { plantComparisonHistory, resolveComparisonPair, comparisonWindow } from '../src/lib/my-crops/comparison-history';
 import type { PlantRecord } from '../src/lib/my-crops/models';
 
 function record(id: string, day: number, score: number | null, disease = 'Early blight', overrides: Partial<PlantRecord> = {}): PlantRecord {
@@ -112,8 +112,8 @@ test('defaults to the previous completed test and offers older history, report l
   assert.match(html, /<option value="a"/);
   assert.match(html, /25 points lower/);
   assert.match(html, /40 points lower/);
-  assert.match(html, /href="\/report\/b"/); assert.match(html, /href="\/report\/c"/);
-  assert.match(html, /aria-valuenow="50"/); assert.match(html, /aria-valuenow="25"/);
+  assert.match(html, /href="\/report\/a"/); assert.match(html, /href="\/report\/b"/);
+  assert.match(html, /aria-valuenow="65"/); assert.match(html, /aria-valuenow="50"/);
   assert.match(html, /A newer test is not complete yet/);
   assert.doesNotMatch(html, /Selected tests comparison/, 'detailed pair is collapsed by default');
   const detail = renderToStaticMarkup(<PairComparisonDetails {...resolveComparisonPair(completedPlantRecords(records, 'tomato', 'plant-a'))!} />);
@@ -130,7 +130,7 @@ test('supports healthy Urdu diagnoses without assuming an untranslated label is 
   assert.equal(comparePlantRecords(record('a', 1, 60), unknown).diagnosisTitle, 'Cause still needs confirmation');
 });
 
-test('shows all 4, 10 and 100 tests, each adjacent change, and first-to-latest overall progress', () => {
+test('retains 4, 10 and 100 tests while rendering only two at a time', () => {
   for (const count of [4, 10, 100]) {
     const records = Array.from({ length: count }, (_, index) => record(`history-${index + 1}`, 1, index % 2 ? 25 : 75, 'Early blight', {
       createdAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
@@ -141,11 +141,19 @@ test('shows all 4, 10 and 100 tests, each adjacent change, and first-to-latest o
     assert.equal(history.overall!.change, -50);
     history.entries.slice(1).forEach((entry, index) => assert.equal(entry.comparison!.change, index % 2 ? 50 : -50));
     const html = renderToStaticMarkup(<PlantProgressComparison records={records} cropId="tomato" plantId="plant-a" />);
-    assert.equal((html.match(/<article /g) || []).length, count, 'no history truncation or all-pairs explosion');
-    for (const r of records) assert.ok(html.includes(`href="/report/${r.reportId}"`));
-    assert.match(html, /What changed across all tests/);
-    assert.match(html, /overflow-x-auto/);
-    assert.match(html, /aria-expanded="false"/);
+    assert.equal((html.match(/<article /g) || []).length, 2, 'at most two photo cards are rendered');
+    for (const r of records) assert.ok(html.includes(`<option value="${r.id}"`), "every test remains selectable");
+    const visited = new Set<string>();
+    for (let page = 0; page < comparisonWindow(history).pageCount; page++) {
+      const view = comparisonWindow(history, page);
+      assert.equal(view.entries.length, 2);
+      view.entries.forEach(entry => visited.add(entry.record.id));
+    }
+    assert.equal(visited.size, count, "every test is reachable through the arrows");
+    assert.match(html, /Findings · Test 1 &amp; Test 2/);
+    assert.ok(html.indexOf("Choose tests to compare") < html.indexOf("<article "), "controls appear above photos");
+    assert.match(html, /Show later tests/);
+    assert.match(html, /aria-pressed="false"/);
   }
 });
 
@@ -194,7 +202,59 @@ test('all-test findings normalize labels and preserve zero, missing scores and u
   assert.equal(history.overall!.currentScore, 0);
   const html = renderToStaticMarkup(<PlantProgressComparison records={records} cropId="tomato" plantId="plant-a" />);
   assert.match(html, /Numeric score unavailable/);
-  assert.match(html, /aria-valuenow="0"/);
+  const lastPage = renderToStaticMarkup(<ComparisonCards entries={comparisonWindow(history, 1).entries} latestNumber={3} />);
+  assert.match(lastPage, /aria-valuenow="0"/);
   assert.match(html, /Not reported does not confirm an issue is resolved/);
   assert.doesNotMatch(html, /NaN|undefined/);
+});
+
+test('paging covers odd counts, clamps at the ends and survives deleted records', () => {
+  for (const count of [0, 1, 2, 3, 5, 11]) {
+    const records = Array.from({ length: count }, (_, index) => record(`test-${index + 1}`, index + 1, 45));
+    const history = plantComparisonHistory(records, 'tomato', 'plant-a');
+    const first = comparisonWindow(history, -1);
+    assert.equal(first.page, 0);
+    assert.ok(first.entries.length <= 2);
+    const end = comparisonWindow(history, 999);
+    assert.equal(end.entries.length, Math.min(2, count));
+    if (count > 1) assert.deepEqual(end.entries.map(entry => entry.number), [count - 1, count]);
+    const visited = new Set<number>();
+    for (let page = 0; page < first.pageCount; page++) comparisonWindow(history, page).entries.forEach(entry => visited.add(entry.number));
+    assert.equal(visited.size, count);
+    assert.equal(comparisonWindow(history, NaN).page, 0);
+    assert.equal(comparisonWindow(history, Infinity).page, 0);
+    if (count > 2) {
+      const afterDelete = plantComparisonHistory(records.slice(0, -2), 'tomato', 'plant-a');
+      assert.ok(comparisonWindow(afterDelete, end.page).entries.length > 0);
+    }
+  }
+});
+
+test('selected photos, report links, scores and finding rows all belong to the chosen pair', () => {
+  const records = [45, 75, 50, 25, 15].map((score, i) => record(`test-${i + 1}`, i + 1, score, 'Early blight', { imageThumb: `/photo-${i + 1}.jpg` }));
+  records[0].diagnosis!.affectedParts = ['Fruit'];
+  records[1].diagnosis!.affectedParts = ['Roots'];
+  records[3].diagnosis!.affectedParts = ['Leaves'];
+  const history = plantComparisonHistory(records, 'tomato', 'plant-a');
+  const pair = resolveComparisonPair(history.complete, 'test-4', 'test-1')!;
+  const view = comparisonWindow(history, 2, pair);
+  assert.deepEqual(view.entries.map(entry => entry.record.id), ['test-1', 'test-4']);
+  assert.equal(view.entries[0].comparison, null);
+  assert.equal(view.entries[0].comparisonNote, 'Earlier selected test');
+  assert.equal(view.entries[1].comparison!.change, -20, 'uses Test 1, not the adjacent Test 3');
+  assert.equal(view.entries[1].comparisonNote, 'Compared with Test 1');
+  assert.deepEqual(view.parts.map(([key]) => key), ['fruit', 'leaf']);
+  assert.equal(view.reportedParts[0].has('fruit'), true);
+  assert.equal(view.reportedParts[1].has('fruit'), false);
+  const html = renderToStaticMarkup(<ComparisonCards entries={view.entries} latestNumber={5} />);
+  assert.equal((html.match(/<article /g) || []).length, 2);
+  assert.match(html, /src="\/photo-1.jpg"/); assert.match(html, /src="\/photo-4.jpg"/);
+  assert.match(html, /href="\/report\/test-1"/); assert.match(html, /href="\/report\/test-4"/);
+  assert.match(html, /aria-valuenow="45"/); assert.match(html, /aria-valuenow="25"/);
+  assert.doesNotMatch(html, /photo-[235].jpg|\/report\/test-[235]/);
+  const backToBrowsing = comparisonWindow(history, 1);
+  assert.deepEqual(backToBrowsing.entries.map(entry => entry.number), [3, 4], 'browsing position is retained');
+  const changedSelection = comparisonWindow(history, 1, resolveComparisonPair(history.complete, 'test-3', 'test-1'));
+  assert.deepEqual(changedSelection.entries.map(entry => entry.number), [1, 3]);
+  assert.equal(changedSelection.entries[1].comparison!.change, 5);
 });

@@ -262,22 +262,18 @@
   }
 }
 
-/* Responsive plant comparison; minimum widths protect readable cards. */
-.crop-comparison-track {
-  /* Keep a readable card and a hint of the next one on narrow phones. */
-  --comparison-card-min: min(17.5rem, calc(100vw - 5.25rem));
-  width: 100%;
-  min-width: calc(var(--comparison-count) * var(--comparison-card-min) + (var(--comparison-count) - 1) * 1rem);
-}
-
+/* Always show at most two tests, independent of how many records are saved. */
 .crop-comparison-grid {
   display: grid;
-  grid-template-columns: repeat(var(--comparison-count), minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
 }
-
+.crop-comparison-grid[data-single="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
 @media (min-width: 640px) {
-  .crop-comparison-track {
-    --comparison-card-min: 16rem;
-  }
+  .crop-comparison-grid { gap: 1rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .crop-comparison-grid { animation: fadeIn 180ms ease-out; }
 }
