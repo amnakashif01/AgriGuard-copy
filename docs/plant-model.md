@@ -80,8 +80,10 @@ expert annotation; train/test overlap is possible. This is not an accuracy study
 
 On these inputs the detector took about 0.77–1.81 seconds locally, including
 preprocessing and first-load overhead. Three candidates passed the score gate;
-one was incorrectly classified potato blight at 96.68%, demonstrating why image
-review and rejection are mandatory. The private maize image scored 27.41% and
+one potato blight candidate at 96.68% disagreed with its dataset-folder label.
+Live Gemini review also accepted Early Blight for that image (visible concentric
+lesions), so this is an unresolved label disagreement, not independently proven
+model error. Neither agreement nor a high score proves diagnostic accuracy. The private maize image scored 27.41% and
 went directly to fallback. The negative control produced no detections.
 
 RT-DETRv2-R18 from Madras1/plantdoc-rtdetrv2-leaf-disease-detector was also tested
