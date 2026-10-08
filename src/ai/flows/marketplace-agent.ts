@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ai } from "@/ai/genkit";
+import { nearbySuppliers as filterNearbySuppliers } from "@/lib/supplier-location";
 
 // Marketplace Agent Schemas
 export const SupplierSchema = z.object({
@@ -434,7 +435,7 @@ export const marketplaceAgent = ai.defineFlow(
       console.log(`✅ Found ${nearbySuppliers.length} suppliers from external API`);
       
       // Step 2: Apply additional filters if provided
-      let filteredSuppliers = nearbySuppliers;
+      let filteredSuppliers = filterNearbySuppliers(nearbySuppliers, input.location, Math.min(input.location.radius, input.filters?.maxDistance ?? input.location.radius));
       
       if (input.query && input.query.trim() !== '' && input.query.trim().toLowerCase() !== 'agricultural supplies') {
         const normalizedQuery = input.query.trim().toLowerCase();

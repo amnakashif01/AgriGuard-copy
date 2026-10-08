@@ -16,7 +16,7 @@ export default function Home() {
       <header className="relative z-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3 group">
+            <Link href="/" aria-label="AgriGuard home" className="flex items-center gap-3 group rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-600">
               <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
                 <Leaf className="h-7 w-7 text-white" />
               </div>
@@ -24,7 +24,7 @@ export default function Home() {
                 <span className="text-2xl font-bold font-headline bg-gradient-to-r from-emerald-700 via-green-600 to-teal-600 bg-clip-text text-transparent">AgriGuard</span>
                 <p className="text-xs text-gray-500 font-medium -mt-0.5">AI-Powered Agriculture</p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-3">
               {!isUserLoading && user ? (
                   <Button asChild className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-bold px-6 rounded-xl">
@@ -132,7 +132,7 @@ export default function Home() {
         </section>
 
         {/* ═══ PREMIUM FEATURES SECTION ═══ */}
-        <section className="relative py-28 overflow-hidden">
+        <section id="features" className="relative py-28 overflow-hidden">
           {/* Background */}
           <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white" />
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent" />
@@ -256,12 +256,12 @@ export default function Home() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 relative">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
             <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-3 mb-5">
+              <Link href="/" aria-label="AgriGuard home" className="flex w-fit items-center gap-3 mb-5 rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-400">
                 <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
                   <Leaf className="h-6 w-6 text-white" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-white to-emerald-200 bg-clip-text text-transparent">AgriGuard</span>
-              </div>
+              </Link>
               <p className="text-gray-300 mb-6 max-w-md leading-relaxed">
                 Empowering Pakistani farmers with AI technology for better crop health and higher yields.
               </p>
@@ -269,18 +269,18 @@ export default function Home() {
                 <Button asChild className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold shadow-lg rounded-xl">
                   <Link href="/login">Get Started</Link>
                 </Button>
-                <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-white/10 rounded-xl">
-                  Learn More
+                <Button asChild variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-white/10 rounded-xl">
+                  <a href="#features">Learn More</a>
                 </Button>
               </div>
             </div>
             <div>
               <h3 className="font-bold mb-5 text-white text-sm uppercase tracking-wider">Features</h3>
               <ul className="space-y-3 text-gray-300">
-                <li className="hover:text-emerald-400 transition-colors cursor-pointer">AI Diagnosis</li>
-                <li className="hover:text-emerald-400 transition-colors cursor-pointer">Treatment Plans</li>
-                <li className="hover:text-emerald-400 transition-colors cursor-pointer">Weather Alerts</li>
-                <li className="hover:text-emerald-400 transition-colors cursor-pointer">Marketplace</li>
+                <li><Link href="/report/new" className="hover:text-emerald-400 transition-colors focus-visible:underline">AI Diagnosis</Link></li>
+                <li><Link href="/report/history" className="hover:text-emerald-400 transition-colors focus-visible:underline">Treatment Plans</Link></li>
+                <li><Link href="/dashboard" className="hover:text-emerald-400 transition-colors focus-visible:underline">Weather Alerts</Link></li>
+                <li><Link href="/marketplace" className="hover:text-emerald-400 transition-colors focus-visible:underline">Marketplace</Link></li>
               </ul>
             </div>
             <div>

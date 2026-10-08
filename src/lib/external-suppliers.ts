@@ -4,6 +4,7 @@
  */
 
 import type { Supplier } from './models';
+import { nearbySuppliers } from './supplier-location';
 
 // Search keywords for agricultural businesses
 const AGRI_KEYWORDS = [
@@ -131,7 +132,7 @@ export async function fetchRealSuppliersFromGooglePlaces(
     return fetchRealSuppliersFromOpenStreetMap(lat, lng, radiusMeters, customQuery);
   }
 
-  return uniqueSuppliers;
+  return nearbySuppliers(uniqueSuppliers, { lat, lng }, radiusMeters / 1000);
 }
 
 /**
@@ -163,13 +164,13 @@ export async function fetchRealSuppliersFromOpenStreetMap(
 
     if (!response.ok) {
       console.warn(`⚠️ OpenStreetMap API returned status: ${response.status}`);
-      return getFallbackRealSuppliers(lat, lng, customQuery);
+      return getFallbackRealSuppliers(lat, lng, customQuery, radiusMeters);
     }
 
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       console.warn('⚠️ OpenStreetMap returned non-JSON response, using fallback suppliers');
-      return getFallbackRealSuppliers(lat, lng, customQuery);
+      return getFallbackRealSuppliers(lat, lng, customQuery, radiusMeters);
     }
 
     const data = await response.json();
@@ -190,16 +191,16 @@ export async function fetchRealSuppliersFromOpenStreetMap(
       }
       
       if (suppliers.length > 0) {
-        return suppliers.slice(0, 20); // Limit results
+        return nearbySuppliers(suppliers, { lat, lng }, radiusMeters / 1000).slice(0, 20); // Limit results
       }
     }
 
     console.log('ℹ️ No results from OpenStreetMap, using fallback suppliers');
     // If no results from OSM, return sample real suppliers from Pakistan
-    return getFallbackRealSuppliers(lat, lng, customQuery);
+    return getFallbackRealSuppliers(lat, lng, customQuery, radiusMeters);
   } catch (error) {
     console.error('❌ Error fetching from OpenStreetMap:', error);
-    return getFallbackRealSuppliers(lat, lng, customQuery);
+    return getFallbackRealSuppliers(lat, lng, customQuery, radiusMeters);
   }
 }
 
@@ -312,7 +313,8 @@ function convertOSMElementToSupplier(element: any, userLat: number, userLng: num
     services: ['Retail Sales'],
     contact: {
       phone: tags.phone || tags['contact:phone'] || 'Not available',
-      ...(tags.email && { email: tags.email })
+      ...((tags.email || tags['contact:email']) && { email: tags.email || tags['contact:email'] }),
+      ...((tags.whatsapp || tags['contact:whatsapp']) && { whatsapp: tags.whatsapp || tags['contact:whatsapp'] })
     },
     rating: 0,
     availability: 'available',
@@ -326,7 +328,7 @@ function convertOSMElementToSupplier(element: any, userLat: number, userLng: num
  * Fallback: Real agricultural suppliers in Pakistan (curated from public sources)
  * These are verified real businesses with accurate contact information
  */
-function getFallbackRealSuppliers(userLat: number, userLng: number, customQuery?: string): Supplier[] {
+function getFallbackRealSuppliers(userLat: number, userLng: number, customQuery?: string, radiusMeters = 50000): Supplier[] {
   // Real agricultural suppliers in Pakistan (sourced from public directories, business listings, and company websites)
   const realSuppliers: Omit<Supplier, 'distance'>[] = [
     {
@@ -712,15 +714,7 @@ function getFallbackRealSuppliers(userLat: number, userLng: number, customQuery?
     );
   }
   
-  return filteredSuppliers.map(supplier => {
-    const distance = calculateHaversineDistance(
-      userLat,
-      userLng,
-      supplier.location.coordinates.lat,
-      supplier.location.coordinates.lng
-    );
-    return { ...supplier, distance };
-  }).sort((a, b) => a.distance - b.distance); // Sorted by distance - nearest first!
+  return nearbySuppliers(filteredSuppliers, { lat: userLat, lng: userLng }, radiusMeters / 1000);
 }
 
 /**

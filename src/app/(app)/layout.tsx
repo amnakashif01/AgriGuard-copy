@@ -122,7 +122,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarProvider defaultOpen={true}>
                 <Sidebar variant="inset" collapsible="icon">
                 <SidebarHeader className="border-b border-emerald-100/50 bg-gradient-to-b from-emerald-50/80 via-green-50/40 to-white">
-                  <div className="flex items-center gap-2.5 px-2 py-3">
+                  <Link href="/" aria-label="AgriGuard home" className="flex items-center gap-2.5 rounded-xl px-2 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
                     <div className="p-2 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-xl shadow-lg group-data-[collapsible=icon]:p-2 transition-shadow hover:shadow-xl">
                       <Leaf className="h-6 w-6 text-white group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5 drop-shadow-sm" />
                     </div>
@@ -130,9 +130,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <span className="text-xl font-bold font-headline bg-gradient-to-r from-emerald-700 via-green-600 to-teal-600 bg-clip-text text-transparent">AgriGuard</span>
                       <p className="text-xs text-gray-500 font-medium">AI-Powered Farming</p>
                     </div>
-                  </div>
+                  </Link>
                 </SidebarHeader>
-                <SidebarContent className="px-3">
+                <SidebarContent className="px-3 pb-3 pt-5">
                     <SidebarMenu className="space-y-3">
                         {menuItems.map((item) => {
                             const isActive = pathname === item.href || (item.href === '/my-crops' && pathname.startsWith('/my-crops/'));
@@ -186,7 +186,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                 {breadcrumbs.map((breadcrumb, index) => (
                                     <React.Fragment key={breadcrumb.href}>
                                         <BreadcrumbItem>
-                                            {index === breadcrumbs.length - 1 ? (
+                                            {breadcrumb.href === pathname ? (
                                                 <BreadcrumbPage>{breadcrumb.label}</BreadcrumbPage>
                                             ) : (
                                                 <BreadcrumbLink asChild>

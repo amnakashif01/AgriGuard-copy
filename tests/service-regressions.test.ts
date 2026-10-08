@@ -66,7 +66,8 @@ test('supplier search requests way centers and excludes missing coordinates', as
     ] });
   };
   const suppliers = await fetchRealSuppliersFromOpenStreetMap(31.52, 74.35);
-  assert.equal(suppliers.length, 3);
+  assert.equal(suppliers.length, 2);
+  assert.ok(suppliers.every(s => s.distance! <= 50));
   assert.ok(suppliers.every(s => Number.isFinite(s.location.coordinates.lat) && Number.isFinite(s.distance)));
 });
 
