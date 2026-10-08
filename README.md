@@ -384,9 +384,7 @@ MIT License - see [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-**Author**: Zohaib Khan  
-**Email**: itxlevicodez@gmail.com  
-**GitHub**: [@ZohaibCodez](https://github.com/ZohaibCodez)
+**Author**: Amna & Ayesha  
 
 ---
 
@@ -408,20 +406,6 @@ MIT License - see [LICENSE](LICENSE) file
 
 If you find AgriSahayak helpful, please ⭐ this repository!
 
----
-
-## 🔗 Links
-
-- **Live Demo**: [https://studio--studio-5603341992-84671.us-central1.hosted.app](https://studio--studio-5603341992-84671.us-central1.hosted.app)
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/ZohaibCodez/studio/issues)
-
----
-
-## 📞 Support
-
-- 📧 **Email**: itxlevicodez@gmail.com
-- 💬 **GitHub Issues**: [Create an issue](https://github.com/ZohaibCodez/studio/issues)
 
 ---
 
