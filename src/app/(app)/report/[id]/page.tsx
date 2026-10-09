@@ -472,6 +472,9 @@ export default function ReportDetailPage() {
         return 'text-red-600';
     };
 
+    const acceptedModel = report.cropEvidence?.route === 'model_assisted' ? report.cropEvidence.accepted : undefined;
+    const displayScore = report.cropEvidence ? acceptedModel?.score : report.confidence;
+
     // Sort history oldest → newest
     const sortedHistory: ReportHistoryEntry[] = [...(report.history || [])].sort(
         (a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()
@@ -480,7 +483,7 @@ export default function ReportDetailPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-3">
                     <Button asChild variant="ghost" size="sm">
                         <Link href="/dashboard">
                             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -653,12 +656,14 @@ export default function ReportDetailPage() {
                                 </div>
                             )}
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">{report.cropEvidence?.route === 'model_assisted' ? 'Model score' : report.cropEvidence?.route === 'gemini_fallback' ? 'Gemini estimate' : t('report.confidence_score')}</p>
-                                    <p className={`text-2xl font-bold ${getConfidenceColor(report.confidence)}`}>
-                                        {report.confidence}%
-                                    </p>
-                                </div>
+                                {displayScore !== undefined && Number.isFinite(displayScore) && (
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">{acceptedModel ? 'Model score' : t('report.confidence_score')}</p>
+                                        <p className={`text-2xl font-bold ${getConfidenceColor(displayScore)}`}>
+                                            {displayScore.toFixed(2)}%
+                                        </p>
+                                    </div>
+                                )}
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1.5"><Leaf className="h-4 w-4 text-emerald-600"/> {t('report.affected_parts')}</p>
                                     <div className="flex flex-wrap gap-2">
