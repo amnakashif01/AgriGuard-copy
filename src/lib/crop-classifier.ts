@@ -16,3 +16,19 @@ export const ClassifierResultSchema = z.object({
   }).optional(),
 });
 export type ClassifierResult = z.infer<typeof ClassifierResultSchema>;
+
+/** Explain score rejection separately from a model that failed to run. */
+export function classifierConfidenceIssue(result: ClassifierResult): string | undefined {
+  if (result.status !== 'classified' || !result.prediction) return undefined;
+  const checks = [
+    ['crop identification', result.prediction.crop.score],
+    ['category', result.prediction.category.score],
+    ['condition match', result.prediction.condition.score],
+  ] as const;
+  if (checks.some(([, score]) => !Number.isFinite(score) || score < 0 || score > 100)) {
+    return 'DaViT returned an invalid score, so its prediction was not used. Gemini reviewed the image.';
+  }
+  const low = checks.filter(([, score]) => score < CLASSIFIER_MIN_SCORE);
+  if (!low.length) return undefined;
+  return `DaViT completed, but ${low.map(([name, score]) => `${name} (${score.toFixed(2)}%)`).join(', ')} did not reach the ${CLASSIFIER_MIN_SCORE}% confirmation threshold. Gemini reviewed the image.`;
+}

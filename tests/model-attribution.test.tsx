@@ -27,10 +27,25 @@ test('a rejected detector candidate is never presented as the diagnosis model or
   const html = renderToStaticMarkup(<CropModelEvidence evidence={fallback}/>);
   assert.match(html, /Gemini fallback/);
   assert.match(html, /Provided the image assessment and care report/);
-  assert.doesNotMatch(html, /Diagnosis model|90.19%|Detector score/);
+  assert.doesNotMatch(html, /Diagnosis model|Detector score/);
+  assert.match(html, /Best leaf candidate: Corn rust leaf \(90\.19% raw score\)/);
+  assert.match(html, /No DaViT result was recorded/);
   const badge = renderToStaticMarkup(<ReportModelBadge report={{status:'Complete',cropEvidence:fallback}}/>);
   assert.match(badge, /Gemini fallback/);
   assert.doesNotMatch(badge, /YOLO11m \+ Gemini/);
+});
+
+test('fallback exposes recorded raw scores without relabelling them as a confirmed diagnosis', () => {
+  const fallback = chooseClassifierEvidence(evidence, { model: 'DaViT-Base', revision: CLASSIFIER_REVISION, status: 'classified', elapsedMs: 450,
+    prediction: { crop: { label: 'tomato', score: 67.25 }, category: { label: 'disease', score: 66.15 }, condition: { label: 'blossom end rot', score: 82.82 }, cropMasked: true } });
+  const html = renderToStaticMarkup(<CropModelEvidence evidence={fallback}/>);
+  assert.match(html, /crop identification \(67\.25%\)/);
+  assert.match(html, /category \(66\.15%\)/);
+  assert.match(html, /Condition candidate/);
+  assert.match(html, /blossom end rot/);
+  assert.match(html, /raw model candidates, not additional confirmed diagnoses/);
+  assert.match(html, /Gemini fallback/);
+  assert.doesNotMatch(html, /Diagnosis model/);
 });
 
 test('dashboard attribution does not invent sources for legacy or unfinished reports', () => {

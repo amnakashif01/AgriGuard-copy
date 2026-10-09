@@ -654,7 +654,7 @@ export default function ReportDetailPage() {
                             )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm text-muted-foreground">{report.cropEvidence?.route === 'model_assisted' ? 'Detector score' : t('report.confidence_score')}</p>
+                                    <p className="text-sm text-muted-foreground">{report.cropEvidence?.route === 'model_assisted' ? 'Model score' : report.cropEvidence?.route === 'gemini_fallback' ? 'Gemini estimate' : t('report.confidence_score')}</p>
                                     <p className={`text-2xl font-bold ${getConfidenceColor(report.confidence)}`}>
                                         {report.confidence}%
                                     </p>

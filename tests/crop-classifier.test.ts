@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CLASSIFIER_REVISION, type ClassifierResult } from '../src/lib/crop-classifier';
-import { chooseClassifierEvidence, chooseDetectorEvidence, CropEvidenceSchema, DETECTOR_REVISION, type DetectorResult } from '../src/lib/crop-detector';
+import { CLASSIFIER_REVISION, classifierConfidenceIssue, type ClassifierResult } from '../src/lib/crop-classifier';
+import { chooseClassifierEvidence, chooseDetectorEvidence, modelFallbackReason, CropEvidenceSchema, DETECTOR_REVISION, type DetectorResult } from '../src/lib/crop-detector';
 import { resolveDetectorDiagnosis } from '../src/ai/detector-diagnosis';
 import { classifyCropCondition } from '../src/ai/crop-classifier-cpu';
 import { needsHighlightReview } from '../src/lib/report-utils';
@@ -52,6 +52,24 @@ test('wrong crop, generic category and healthy/condition conflict abstain', () =
   }
   const unhealthy = candidate(); unhealthy.prediction!.condition.label = 'healthy';
   assert.equal(chooseClassifierEvidence(base, unhealthy).accepted, undefined);
+});
+
+test('fallback explains weak scores, preserves image-review rejection, and distinguishes runtime failure', () => {
+  const value = candidate();
+  value.prediction!.crop.score = 67.25;
+  value.prediction!.category.score = 66.15;
+  const fallback = chooseClassifierEvidence(base, value, 'Maize');
+  assert.match(fallback.reason, /DaViT completed/);
+  assert.match(fallback.reason, /crop identification \(67\.25%\).*category \(66\.15%\)/);
+  assert.doesNotMatch(fallback.reason, /unavailable/);
+  const historical = { ...fallback, reason: 'Neither specialized model confidently confirmed this condition.' };
+  assert.equal(modelFallbackReason(historical), fallback.reason);
+  assert.equal(modelFallbackReason({ ...historical, reason: 'Image review rejected the candidate.', reviewReason: 'Not visibly supported.' }), 'Image review rejected the candidate.');
+  const unavailable: ClassifierResult = { model: 'DaViT-Base', revision: CLASSIFIER_REVISION, status: 'unavailable', elapsedMs: 10 };
+  assert.equal(classifierConfidenceIssue(unavailable), undefined);
+  assert.match(chooseClassifierEvidence(base, unavailable).reason, /unavailable/);
+  value.prediction!.crop.score = NaN;
+  assert.match(chooseClassifierEvidence(base, value).reason, /invalid score/);
 });
 
 test('strong existing YOLO result wins and skips the additional model', async () => {

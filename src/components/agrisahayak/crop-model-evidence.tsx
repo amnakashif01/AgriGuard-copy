@@ -4,7 +4,8 @@ import React, {useId, useState} from 'react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {ChevronDown, CircleDot, Info, ScanSearch, Sparkles} from 'lucide-react';
-import {diagnosisModelName, DETECTOR_MIN_SCORE, type CropEvidence} from '@/lib/crop-detector';
+import {diagnosisModelName, modelFallbackReason, DETECTOR_MIN_SCORE, type CropEvidence} from '@/lib/crop-detector';
+import {CLASSIFIER_MIN_SCORE} from '@/lib/crop-classifier';
 
 export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEvidence; imageUrl?:string}) {
   const [expanded, setExpanded] = useState(false);
@@ -14,6 +15,8 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
   const davit = confirmed && diagnosisModelName(evidence) === 'DaViT-Base';
   const modelLabel = davit ? 'DaViT-Base' : 'YOLO11m · PlantDoc';
   const regions = confirmed && !davit ? evidence.detector.detections.filter(d=>d.score>=DETECTOR_MIN_SCORE) : [];
+  const topDetection = evidence.detector.detections.reduce<typeof evidence.detector.detections[number] | undefined>((top, detection) => !top || detection.score > top.score ? detection : top, undefined);
+  const classifierPrediction = evidence.classifier?.status === 'classified' ? evidence.classifier.prediction : undefined;
   return <Card className="overflow-hidden border-emerald-300 bg-gradient-to-br from-emerald-50/80 to-white shadow-sm dark:border-emerald-800 dark:from-emerald-950/40 dark:to-background">
     <CardHeader className="gap-2 p-4 pb-3 sm:p-6 sm:pb-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -49,7 +52,7 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
           {confirmed ? <Sparkles aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-emerald-800 dark:text-emerald-400"/> : <ScanSearch aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-slate-500"/>}
           <div className="space-y-1">
             <p className="text-base font-semibold text-slate-950 sm:text-lg dark:text-slate-100">{confirmed ? 'Gemini' : evidence.classifier ? 'YOLO11m + DaViT checks' : 'YOLO11m · PlantDoc'}</p>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{confirmed ? 'Image review, estimated severity & care plan' : evidence.reason}</p>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{confirmed ? 'Image review, estimated severity & care plan' : modelFallbackReason(evidence)}</p>
           </div>
         </div>
       </div>
@@ -58,10 +61,24 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
         <span>{confirmed && (davit ? 'Model score is not measured accuracy. ' : 'Detector score is not measured accuracy. ')}Severity and red circles are Gemini visual estimates.</span>
       </p>
       <div id={detailsId} hidden={!expanded} className="space-y-3 border-t border-emerald-200 pt-4 text-sm leading-relaxed text-slate-600 dark:border-emerald-800 dark:text-slate-300">
+        <p className="font-medium text-slate-900 dark:text-slate-100">What each model returned</p>
+        <p><strong>YOLO11m:</strong> {evidence.detector.status === 'unavailable' ? 'Could not process this image. This is a processing failure, not a low-confidence prediction.' : evidence.detector.status === 'unsupported' ? 'Skipped: the selected crop is outside its trained leaf categories.' : topDetection ? `Completed. Best leaf candidate: ${topDetection.label} (${topDetection.score.toFixed(2)}% raw score). ${topDetection.score < DETECTOR_MIN_SCORE ? `Below the ${DETECTOR_MIN_SCORE}% confirmation threshold.` : 'Passing the score threshold still requires matching crop and image review.'}` : 'Completed. No leaf candidate was detected above the 15% reporting floor.'}</p>
+        <p><strong>DaViT:</strong> {!evidence.classifier ? confirmed ? 'Not run: the YOLO result was accepted first.' : 'No DaViT result was recorded. This report may predate the broader model.' : evidence.classifier.status === 'unavailable' ? 'Could not process this image. This is a processing failure, not a low-confidence prediction.' : 'Completed. Its predictions and scores are shown below.'}</p>
+        {classifierPrediction && <dl className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-900 sm:grid-cols-3">
+          {([
+            ['Crop', classifierPrediction.crop],
+            ['Category', classifierPrediction.category],
+            ['Condition candidate', classifierPrediction.condition],
+          ] as const).map(([label, prediction]) => <div key={label} className="min-w-0">
+            <dt className="text-xs font-medium">{label}</dt>
+            <dd className="break-words">{prediction.label.replace(/_/g, ' ')} · {prediction.score.toFixed(2)}%</dd>
+          </div>)}
+        </dl>}
+        {classifierPrediction && <p>These are raw model candidates, not additional confirmed diagnoses. Each DaViT score must reach {CLASSIFIER_MIN_SCORE}%, the crop must match, and image review must agree.{classifierPrediction.cropMasked && ' The condition score is conditional on the predicted crop.'}</p>}
         <p>YOLO11m trained on PlantDoc · 29 leaf categories · server CPU processing: {(evidence.detector.elapsedMs / 1000).toFixed(2)} s.</p>
         {evidence.classifier ? <><p>DaViT-Base · crop, disease and pest classification · server CPU processing: {(evidence.classifier.elapsedMs / 1000).toFixed(2)} s.</p><p>DaViT covers selected leaf, fruit and pest conditions, including Fall Armyworm. It cannot identify every condition and does not measure severity or locate lesions.</p></> : <p>Fruit rot, ear or stem diseases, Fall Armyworm and unlisted crops are outside this leaf detector’s trained scope.</p>}
         {davit && evidence.classifier?.prediction && <p>Crop score: {evidence.classifier.prediction.crop.score.toFixed(2)}% · Category score: {evidence.classifier.prediction.category.score.toFixed(2)}% · Condition score: {evidence.classifier.prediction.condition.score.toFixed(2)}%. The displayed model score is the lowest of these three checks.{evidence.classifier.prediction.cropMasked && ' The disease score is conditional on the predicted crop.'}</p>}
-        <p>A Gemini fallback result is not a diagnosis confirmed by a specialized model.</p>
+        {!confirmed && <p>A Gemini fallback result is not a diagnosis confirmed by a specialized model. Try a clear close-up of the affected plant part; a wide field photo may not show enough detail.</p>}
         {evidence.reviewReason && <p>Image review: {evidence.reviewReason}</p>}
         {expanded && imageUrl && regions.length > 0 && <>
           <p>Green boxes show detected leaves, not the diseased area.</p>

@@ -87,3 +87,18 @@ No push, deployment, production data mutation, or outgoing user message was perf
 The user approved production deployment. The existing browser session has access to the correct copied Vercel project, while the connected Vercel API account does not. Fluid Compute was already enabled; `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` was added to the copied project's Production configuration. The existing Google API secret remains configured without being read or changed.
 
 The first remote build successfully exported and verified DaViT, then hit the Hobby function-count limit because the former global tracing rule included model weights in every route. Tracing now includes both models in the eight routes that execute diagnosis; metrics, weather scheduling, history, and highlight-only comparisons do not ship model weights. A post-build packaging check verifies all eight diagnosis traces and rejects accidental model inclusion in other routes. Local build and TypeScript checks pass with this configuration.
+
+## Signed-in production verification — 2026-10-09
+
+Deployment `13af76d` reached Ready in Production. The first demo account was used through the normal secure browser sign-in flow, then two fresh reports were submitted through the live upload form:
+
+| Photo | Live result | Attribution | Report |
+| --- | --- | --- | --- |
+| Maize with insect damage | Fall Armyworm, model score 90.51% | DaViT-Base diagnosis; Gemini image review and care | `UEtfdYRJNOSb6UA7tkZ1` |
+| Corn rust leaf | Common Rust, model score 90.19% | YOLO11m diagnosis; Gemini image review and care | `GNKJtIOuPsMTzn9c1GAJ` |
+
+Both saved reports rendered treatment information and image highlights. The maize-ear fallback reported by the user (`PwKxx7p6bKonLlhsCGIe`) recorded YOLO processing in 3.12s and DaViT in 5.87s. Its matching Vercel invocation completed successfully, without a model-unavailable warning. The fallback is not evidence that every inference or the deployed runtimes fail. It is also not valid to call these two successful examples an accuracy study or proof of universal crop coverage.
+
+The UI previously hid the stored DaViT scores on fallback reports and displayed only a generic explanation. It now shows each model's completion/unsupported/unavailable state and raw candidates in the expandable details, including all three DaViT scores. Low-score explanations name the exact failed checks and retain the 80% acceptance threshold. Historical reports use their stored evidence, without rerunning or overwriting diagnoses. Rejected raw candidates remain clearly separated from the final diagnosis. The diagnosis-details label now says Model score for either accepted specialized model, and Gemini estimate for fallback output.
+
+Live supplier Call buttons measured 40px in height. TypeScript and 19 focused model/attribution tests passed before deployment of this explanation fix. No confidence threshold was lowered, no third model was added, and no existing user report was deleted.
