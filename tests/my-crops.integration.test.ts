@@ -18,6 +18,7 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'demo-agriguard-copy.firebaseapp.com';
   const { getApp, getDb } = await import('../src/lib/firestore');
   const { deleteCrop } = await import('../src/lib/my-crops/delete-crop');
+  const { deletePlantRecord } = await import('../src/lib/my-crops/delete-record');
   const { addCrop, startPlantRecord, finishPlantRecord, failPlantRecord, plantNameExists, saveMissingSeverity } = await import('../src/lib/my-crops/repository');
   const app = getApp(), db = getDb(), auth = getAuth(app);
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST!.split(':');
@@ -114,6 +115,48 @@ test('My Crops persists user-created cards and immutable records, enforces atomi
     assert.equal((await getDocs(collection(cropRef, 'plants'))).size, 2, 'failed input creates no partial plant');
     await assert.rejects(getDoc(doc(db, 'users', 'different-user', 'crops', cropId)), /permission/i);
     await assert.rejects(setDoc(doc(db, 'users', 'different-user', 'crops', cropId, 'plants', first.plantId), { name: 'Intruder' }), /permission/i);
+    // Deleting a test is atomic across the timeline, report, notification and summary.
+    const deletionCrop = await addCrop(uid, 'Deletion test crop');
+    const d1 = await startPlantRecord(uid, deletionCrop, input);
+    const d2 = await startPlantRecord(uid, deletionCrop, { ...input, plantId: d1.plantId });
+    const d3 = await startPlantRecord(uid, deletionCrop, { ...input, plantId: d1.plantId });
+    for (const [item, score] of [[d1, 10], [d2, 20], [d3, 30]] as const) await finishPlantRecord(uid, deletionCrop, d1.plantId, item.reportId, { ...analysis, severityScore: score });
+    const deletionPlantRef = doc(db, 'users', uid, 'crops', deletionCrop, 'plants', d1.plantId);
+    await deletePlantRecord(uid, deletionCrop, d1.plantId, d2.reportId);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.recordCount, 2);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.latestSeverityScore, 30);
+    for (const ref of [doc(deletionPlantRef, 'records', d2.reportId), doc(db, 'users', uid, 'reports', d2.reportId), doc(db, 'users', uid, 'notifications', `diagnosis_${d2.reportId}`)]) assert.equal((await getDoc(ref)).exists(), false);
+    assert.equal((await getDoc(doc(deletionPlantRef, 'records', d1.reportId))).exists(), true);
+    await deletePlantRecord(uid, deletionCrop, d1.plantId, d3.reportId);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.latestRecordId, d1.reportId);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.latestSeverityScore, 10);
+    await assert.rejects(finishPlantRecord(uid, deletionCrop, d1.plantId, d3.reportId, analysis), /could not be found/);
+    await assert.rejects(deletePlantRecord(uid, deletionCrop, d1.plantId, first.reportId), /does not belong/);
+    const race = await startPlantRecord(uid, deletionCrop, { ...input, plantId: d1.plantId });
+    const [, added] = await Promise.all([
+      deletePlantRecord(uid, deletionCrop, d1.plantId, race.reportId),
+      startPlantRecord(uid, deletionCrop, { ...input, plantId: d1.plantId }),
+    ]);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.recordCount, 2);
+    assert.equal((await getDoc(deletionPlantRef)).data()?.latestRecordId, added.reportId);
+    await Promise.all([deletePlantRecord(uid, deletionCrop, d1.plantId, d1.reportId), deletePlantRecord(uid, deletionCrop, d1.plantId, added.reportId)]);
+    const emptyPlant = await getDoc(deletionPlantRef);
+    assert.equal(emptyPlant.exists(), true, 'deleting the last test preserves the named plant');
+    assert.equal(emptyPlant.data()?.recordCount, 0);
+    assert.equal(emptyPlant.data()?.latestRecordId, '');
+    assert.equal(emptyPlant.data()?.latestSeverityScore, null);
+    assert.equal(emptyPlant.data()?.imageThumb, '', 'deleted test photos are removed from the plant cover');
+    await deletePlantRecord(uid, deletionCrop, d1.plantId, added.reportId); // Idempotent retry.
+    await assert.rejects(deletePlantRecord('different-user', deletionCrop, d1.plantId, added.reportId), /permission/i);
+    const restarted = await startPlantRecord(uid, deletionCrop, { ...input, plantId: d1.plantId });
+    assert.equal((await getDoc(deletionPlantRef)).data()?.imageThumb, photo, 'an empty plant can accept a new test and cover photo');
+    assert.equal((await getDoc(deletionPlantRef)).data()?.latestRecordId, restarted.reportId);
+    const { deleteReport } = await import('../src/lib/repositories');
+    await deleteReport(uid, restarted.reportId);
+    assert.equal((await getDoc(doc(deletionPlantRef, 'records', restarted.reportId))).exists(), false, 'main report page deletion also removes the linked timeline record');
+    assert.equal((await getDoc(deletionPlantRef)).exists(), true, 'main report deletion preserves the plant');
+    assert.equal((await getDoc(deletionPlantRef)).data()?.recordCount, 0);
+    assert.equal((await getDoc(firstRecordRef)).exists(), true, 'other plants are untouched');
     // Multiple pages of photo records must be removed, not only the crop document.
     for (let index = 0; index < 11; index++) await startPlantRecord(uid, cropId, { ...input, plantId: first.plantId });
     const oldCrop = { id: cropId, createdAt: (await getDoc(cropRef)).data()!.createdAt };

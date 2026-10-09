@@ -9,7 +9,7 @@ export function needsHighlightReview(report: Partial<DiagnosisReport>): boolean 
     // Hybrid reports already localize symptoms in the initial image request.
     // Opening a saved report must not trigger another billable/fallible AI call.
     return report.status === 'Complete'
-        && report.cropEvidence?.version !== 2
+        && ![2, 3].includes(report.cropEvidence?.version || 0)
         && report.visualHighlightsReviewVersion !== HIGHLIGHT_REVIEW_VERSION
         && report.severity !== 'None'
         && !/healthy|not a crop|not a plant/i.test(report.disease || '')

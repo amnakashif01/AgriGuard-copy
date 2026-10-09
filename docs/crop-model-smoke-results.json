@@ -1,0 +1,86 @@
+{
+  "scope": "Actual CPU inference; candidates still require image review. This is not an accuracy study or full Gemini report test.",
+  "peakRssMiB": 1046,
+  "results": [
+    {
+      "file": "agriguard-maize-regression.jpg",
+      "detectorMs": 1117,
+      "leafCandidate": null,
+      "classifierMs": 1602,
+      "classifierStatus": "classified",
+      "prediction": {
+        "crop": {
+          "label": "maize",
+          "score": 90.51
+        },
+        "category": {
+          "label": "pest/weed",
+          "score": 92.45
+        },
+        "condition": {
+          "label": "fall armyworm",
+          "score": 90.67
+        },
+        "cropMasked": false
+      },
+      "broaderCandidate": {
+        "model": "DaViT-Base",
+        "crop": "Maize",
+        "disease": "Fall Armyworm",
+        "label": "fall armyworm",
+        "score": 90.51
+      }
+    },
+    {
+      "file": "field-Corn_rust_leaf.jpg",
+      "detectorMs": 829,
+      "leafCandidate": {
+        "crop": "Maize",
+        "disease": "Common Rust",
+        "score": 90.19,
+        "label": "Corn rust leaf"
+      },
+      "classifierMs": 400,
+      "classifierStatus": "classified",
+      "prediction": {
+        "crop": {
+          "label": "maize",
+          "score": 89.24
+        },
+        "category": {
+          "label": "disease",
+          "score": 71.81
+        },
+        "condition": {
+          "label": "anthracnose leaf blight",
+          "score": 30.92
+        },
+        "cropMasked": true
+      },
+      "broaderCandidate": null
+    },
+    {
+      "file": "agriguard-tomato-fruit-report-crop.jpg",
+      "detectorMs": 823,
+      "leafCandidate": null,
+      "classifierMs": 420,
+      "classifierStatus": "classified",
+      "prediction": {
+        "crop": {
+          "label": "tomato",
+          "score": 67.25
+        },
+        "category": {
+          "label": "disease",
+          "score": 66.15
+        },
+        "condition": {
+          "label": "blossom end rot",
+          "score": 82.82
+        },
+        "cropMasked": true
+      },
+      "broaderCandidate": null
+    }
+  ]
+}

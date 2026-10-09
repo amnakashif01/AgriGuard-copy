@@ -1,0 +1,18 @@
+{
+  "model": "DaViT-Base",
+  "source": "DigiGreen/crop-disease-pest-detection-dg",
+  "revision": "907148a4ef8669e80e5c85ae5f029725b40fb3f3",
+  "license": "MIT",
+  "sourceWeightsSha256": "6ded6f17a38e5c2caef6a4598fd3e2aa9697d804735e495a1883b496fbf96f42",
+  "onnxSha256": "fa113cc195cc401789b06436212331b1910ead9edce991f241781a2f4c64c05b",
+  "onnxBytes": 350987018,
+  "labelsSource": "https://huggingface.co/spaces/DigiGreen/farmerchat-crop-diagnosis",
+  "labelsRevision": "17a93c0d385019dfc44549af61c93b7c721b4a9b",
+  "labelsSha256": "06d0d5991475845d237114828f8fe604cb8b05f57e16ecae6042f8f5b12a86d1",
+  "heads": {
+    "crop": 110,
+    "category": 3,
+    "disease": 285,
+    "pest": 92
+  }
+}

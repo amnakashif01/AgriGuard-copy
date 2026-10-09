@@ -5,6 +5,8 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import CropModelEvidence from '../src/components/agrisahayak/crop-model-evidence';
 import ReportModelBadge from '../src/components/agrisahayak/report-model-badge';
 import {chooseDetectorEvidence, DETECTOR_REVISION, rejectDetectorEvidence} from '../src/lib/crop-detector';
+import { chooseClassifierEvidence } from '../src/lib/crop-detector';
+import { CLASSIFIER_REVISION } from '../src/lib/crop-classifier';
 
 const evidence = chooseDetectorEvidence({model:'YOLO11m PlantDoc',revision:DETECTOR_REVISION,status:'detected',elapsedMs:900,detections:[{classId:9,label:'Corn rust leaf',score:90.19,box:[100,100,800,800]}]}, 'Maize');
 
@@ -36,4 +38,13 @@ test('dashboard attribution does not invent sources for legacy or unfinished rep
   assert.equal(renderToStaticMarkup(<ReportModelBadge report={{status:'Pending',cropEvidence:evidence}}/>), '');
   const missingAcceptance = {...evidence,accepted:undefined};
   assert.match(renderToStaticMarkup(<ReportModelBadge report={{status:'Complete',cropEvidence:missingAcceptance}}/>), /Gemini fallback/);
+});
+
+test('DaViT attribution is truthful and does not expose upstream source links or leaf boxes', () => {
+  const classified = chooseClassifierEvidence(evidence, { model: 'DaViT-Base', revision: CLASSIFIER_REVISION, status: 'classified', elapsedMs: 450,
+    prediction: { crop: { label: 'maize', score: 90.5 }, category: { label: 'pest/weed', score: 92.4 }, condition: { label: 'fall armyworm', score: 90.6 }, cropMasked: false } }, 'Maize');
+  const html = renderToStaticMarkup(<CropModelEvidence evidence={classified} imageUrl="fixture.jpg" />);
+  assert.match(html, /DaViT-Base/); assert.match(html, /Model score/); assert.match(html, /90.50/);
+  assert.doesNotMatch(html, /href="https:\/\/github|Model source|model-detected leaf regions/);
+  assert.match(renderToStaticMarkup(<ReportModelBadge report={{status:'Complete',cropEvidence:classified}}/>), /DaViT \+ Gemini/);
 });

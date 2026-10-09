@@ -11,6 +11,8 @@ import { analyzeSavedPlantRecord, recoverSavedSeverity } from '@/lib/my-crops/an
 import { RecordSummary } from './record-summary';
 import { PlantProgressComparison, RecordChange } from './record-comparison';
 import { completedPlantRecords } from '@/lib/my-crops/record-comparison';
+import { deletePlantRecord } from '@/lib/my-crops/delete-record';
+import { DeleteRecordButton } from './delete-record-button';
 import { CropFrame, ErrorNotice, greenButton, LoadState, useCropData } from './shared';
 
 function RecordDetails({ record }: { record: PlantRecord }) {
@@ -58,7 +60,7 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
   return <CropFrame wide title={crop ? `${crop.name} Health Records` : 'Health Records'} eyebrow="PLANT TIMELINE" subtitle={plant ? `${plant.name} · ${plant.code}` : undefined} back={{ href: `/my-crops/${cropId}`, label: crop?.name || 'Back to crop' }}>
     <LoadState loading={loading} error={error} missing={!loading && (!crop || !plant)} />
     {!loading && !error && crop && plant && <div>
-      <p className="mb-7 text-xs leading-5 text-slate-500">Every photo and analysis stays in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
+      <p className="mb-7 text-xs leading-5 text-slate-500">Your saved photos and analyses appear in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
       {retryError && <ErrorNotice message={retryError} />}
       <PlantProgressComparison key={`${cropId}/${plantId}`} records={records.data} cropId={cropId} plantId={plantId} />
       <div className="space-y-6 border-s-2 border-emerald-200 ps-5 sm:ps-7">
@@ -70,6 +72,10 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
             </div>
             {record.status === 'Complete' && <RecordChange current={record} previous={previousRecords.get(record.id)} />}
             <RecordDetails record={record} />
+            <div className="mt-4 flex justify-end border-t border-emerald-50 pt-4"><DeleteRecordButton label={`record ${index + 1} for ${plant.name}`} disabled={Boolean(busyId) || !user} onDelete={async () => {
+              if (!user) throw new Error('Please sign in to delete this report.');
+              await deletePlantRecord(user.uid, cropId, plantId, record.reportId);
+            }} /></div>
           </div>
         </article>)}
       </div>

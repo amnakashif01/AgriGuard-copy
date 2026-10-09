@@ -60,7 +60,9 @@ export async function startPlantRecord(uid: string, cropId: string, input: Start
       status: 'Processing', createdAt: now, updatedAt: now,
     });
     if (plant) {
-      transaction.update(plantRef, { age, recordCount: plant.recordCount + 1, latestRecordId: reportRef.id, updatedAt: now });
+      transaction.update(plantRef, { age, recordCount: plant.recordCount + 1, latestRecordId: reportRef.id, updatedAt: now,
+        ...(plant.recordCount === 0 ? { imageThumb: input.imageThumb, latestSeverityScore: null, latestDisease: '' } : {}),
+      });
     } else {
       transaction.set(plantRef, {
         cropId, name: plantName, nameKey: nameKey(plantName), code: plantCode(crop.name, crop.nextPlantNumber),

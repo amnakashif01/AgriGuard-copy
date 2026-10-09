@@ -120,7 +120,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
     );
 }
 
-const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: number }) => {
+export const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: number }) => {
     const { user } = useAuth();
 
     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${supplier.location.coordinates.lat},${supplier.location.coordinates.lng}`)}`;
@@ -213,12 +213,12 @@ const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: number }
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col gap-3 lg:w-48">
+                <div className="flex shrink-0 flex-col gap-3 self-start w-full lg:w-48 [&>a]:h-10 [&>a]:flex-none [&>button]:h-10 [&>button]:flex-none">
                         {canCall && <Button
                             variant="default"
                             size="sm"
                             asChild
-                            className="flex-1 group-hover:bg-green-600 transition-colors"
+                            className="h-10 flex-none group-hover:bg-green-600 transition-colors"
                         >
                             <a href={`tel:${phone}`}>
                                 <Phone className="mr-2 h-4 w-4" />
@@ -229,7 +229,7 @@ const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: number }
                             variant="outline"
                             size="sm"
                             asChild
-                            className="flex-1 group-hover:border-green-500 group-hover:text-green-600 transition-colors"
+                            className="h-10 flex-none group-hover:border-green-500 group-hover:text-green-600 transition-colors"
                         >
                             <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">
                                 <MessageCircle className="mr-2 h-4 w-4" />

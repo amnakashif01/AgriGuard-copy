@@ -1,5 +1,5 @@
 import { getAuth } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, query, orderBy, limit, where, serverTimestamp, getDocFromCache, addDoc, getCountFromServer, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, query, orderBy, limit, where, serverTimestamp, getDocFromCache, addDoc, getCountFromServer, arrayUnion, writeBatch } from 'firebase/firestore';
 import { getDb, getApp } from './firestore';
 import type { UserProfile, DiagnosisReport, AdminLog, Supplier, ReportHistoryEntry } from './models';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -175,7 +175,16 @@ export async function updateReport(uid: string, reportId: string, data: Partial<
 export async function deleteReport(uid: string, reportId: string): Promise<void> {
     const db = getDb();
     const ref = doc(db, 'users', uid, 'reports', reportId);
-    await writeWithTimeout(deleteDoc(ref), 'Report deletion');
+    const report = (await getDoc(ref)).data();
+    if (report?.cropId && report?.plantId && report?.plantRecordId) {
+        const { deletePlantRecord } = await import('./my-crops/delete-record');
+        await deletePlantRecord(uid, report.cropId, report.plantId, reportId, db);
+        return;
+    }
+    const batch = writeBatch(db);
+    batch.delete(ref);
+    batch.delete(doc(db, 'users', uid, 'notifications', `diagnosis_${reportId}`));
+    await writeWithTimeout(batch.commit(), 'Report deletion');
 }
 
 

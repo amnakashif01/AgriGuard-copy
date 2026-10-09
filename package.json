@@ -6,11 +6,14 @@
     "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "node scripts/prepare-plant-model.mjs && next build",
+    "build": "node scripts/prepare-plant-model.mjs && node scripts/prepare-crop-classifier.mjs && next build",
     "model:prepare": "node scripts/prepare-plant-model.mjs",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts tests/*.test.tsx",
+    "test:browser": "node tests/run-browser.mjs",
+    "test:integration": "npx --yes firebase-tools@14.20.0 emulators:exec --project demo-agriguard-copy --config tests/firebase-emulator.json --only auth,firestore 'node --import tsx --test --test-concurrency=1 tests/my-crops.integration.test.ts tests/realtime.integration.test.ts'"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.20.0",
@@ -66,11 +69,14 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "esbuild": "0.25.9",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "genkit-cli": "^1.20.0",
+    "playwright": "1.51.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "4.20.5",
     "typescript": "^5"
   }
 }
