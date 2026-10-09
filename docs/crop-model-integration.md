@@ -81,3 +81,9 @@ node --import tsx scripts/benchmark-crop-classifier.ts /absolute/path/to/photo.j
 4. **Connected project access:** the connected Vercel account did not expose the copied project, so its configuration could not be inspected. Confirm project access, model packaging, runtime memory/latency, and live Gemini behavior before requesting deployment approval.
 
 No push, deployment, production data mutation, or outgoing user message was performed during this continuation.
+
+## Deployment continuation — 2026-10-09
+
+The user approved production deployment. The existing browser session has access to the correct copied Vercel project, while the connected Vercel API account does not. Fluid Compute was already enabled; `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` was added to the copied project's Production configuration. The existing Google API secret remains configured without being read or changed.
+
+The first remote build successfully exported and verified DaViT, then hit the Hobby function-count limit because the former global tracing rule included model weights in every route. Tracing now includes both models in the eight routes that execute diagnosis; metrics, weather scheduling, history, and highlight-only comparisons do not ship model weights. A post-build packaging check verifies all eight diagnosis traces and rejects accidental model inclusion in other routes. Local build and TypeScript checks pass with this configuration.
