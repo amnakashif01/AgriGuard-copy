@@ -13,6 +13,9 @@ import { upsertProfile } from '@/lib/repositories';
 
 type Mode = 'login' | 'signup' | 'reset';
 
+// Public presentation account: ordinary user permissions, never administrator access.
+const DEMO_ACCOUNT = { email: 'demo@agriguard.example', password: 'AgriGuardDemo!2026' };
+
 function authMessage(error: unknown): string {
   const code = (error as { code?: string })?.code;
   switch (code) {
@@ -45,7 +48,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [visible, setVisible] = useState(false);
-  const [busy, setBusy] = useState<'email' | 'google' | null>(null);
+  const [busy, setBusy] = useState<'email' | 'google' | 'demo' | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const authenticating = useRef(false);
@@ -124,6 +127,22 @@ export default function LoginPage() {
     }
   }
 
+  async function demoSignIn() {
+    if (authenticating.current) return;
+    authenticating.current = true;
+    setBusy('demo');
+    setError('');
+    setNotice('');
+    try {
+      await completeSignIn(await signInWithEmailAndPassword(auth, DEMO_ACCOUNT.email, DEMO_ACCOUNT.password));
+    } catch (failure) {
+      setError(authMessage(failure));
+    } finally {
+      authenticating.current = false;
+      setBusy(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f8f4] text-slate-900 lg:grid lg:grid-cols-2">
       <section className="relative overflow-hidden bg-emerald-950 px-7 py-8 text-white sm:px-12 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-16">
@@ -172,6 +191,10 @@ export default function LoginPage() {
               <Button type="submit" className="h-12 w-full gap-2 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-800">{busy === 'email' ? <><Loader2 className="h-4 w-4 animate-spin" />Please wait…</> : <>{mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}<ArrowRight className="h-4 w-4" /></>}</Button>
               {mode === 'reset' && <button type="button" onClick={() => switchMode('login')} className="w-full text-sm font-semibold text-emerald-700 hover:underline">Back to sign in</button>}
             </form>
+            {mode === 'login' && <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <div className="mb-3"><p className="text-sm font-semibold text-emerald-900">Explore AgriGuard</p><p className="mt-1 text-xs leading-5 text-emerald-800/80">Try the app with a shared demo account.</p></div>
+              <Button type="button" variant="outline" onClick={demoSignIn} className="h-11 w-full gap-2 rounded-lg border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100">{busy === 'demo' ? <><Loader2 className="h-4 w-4 animate-spin" />Opening demo…</> : <>Try demo account<ArrowRight className="h-4 w-4" /></>}</Button>
+            </div>}
           </fieldset>
           <p className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-500"><ShieldCheck className="h-4 w-4 text-emerald-700" />Secure sign-in. Your farm, in one place.</p>
         </div>
