@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchMarketplace } from '@/lib/marketplace-search';
+import { loadRegisteredSuppliers, searchMarketplace } from '@/lib/marketplace-search';
 import { resolveSupplierCity, validCoordinates } from '@/lib/supplier-location';
 
 export const maxDuration = 30;
@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
     // Resolve the saved city first: old GPS coordinates may belong to an earlier location.
     const origin = location ? await resolveSupplierCity(location) : { lat, lng, city: current ? 'Current location' : 'Saved location' };
     const query = (searchParams.get('query')?.trim() || '').slice(0, 200);
-    const result = await searchMarketplace(origin, radius / 1000, query);
+    const authorization = request.headers.get('authorization');
+    const authIdToken = authorization?.startsWith('Bearer ') ? authorization.slice(7).trim() : undefined;
+    const result = await searchMarketplace(origin, radius / 1000, query, () => loadRegisteredSuppliers(authIdToken));
     return NextResponse.json({ success: true, ...result, count: result.suppliers.length, location: { ...origin, countryCode: result.countryCode }, radiusKm: radius / 1000 }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Nearby suppliers are temporarily unavailable. Please try again.' }, { status: 502 });
