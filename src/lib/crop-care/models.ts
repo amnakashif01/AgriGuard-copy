@@ -230,6 +230,12 @@ export function cropNames(value: string): string[] {
     ]),
   ].slice(0, 10);
 }
+/** Crop-cycle calendar dates use Pakistan time, including checks after local midnight. */
+export function careDay(value: string | Date = new Date()): string {
+  const instant = new Date(value);
+  if (!Number.isFinite(instant.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit'}).format(instant);
+}
 export function reportFitsSeason(
   report: CareReport,
   season: SeasonInput,
@@ -238,7 +244,7 @@ export function reportFitsSeason(
     return "Wait for the diagnosis to finish before linking it.";
   if (cropKey(report.crop) !== cropKey(season.crop))
     return "Choose a season for the same crop as this diagnosis.";
-  const date = report.createdAt.slice(0, 10);
+  const date = careDay(report.createdAt);
   if (
     !date ||
     date < season.startedOn ||
