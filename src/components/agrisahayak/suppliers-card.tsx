@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Star, Phone, MessageCircle, Clock, Truck, Award, Users, LocateFixed } from "lucide-react";
+import { MapPin, Star, Phone, MessageCircle, Clock, Truck, Award, Users, LocateFixed, Leaf, Store } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LoadingSpinner from "./loading-spinner";
@@ -12,6 +12,8 @@ import type { Supplier, UserProfile } from "@/lib/models";
 import { useAuth } from "@/firebase";
 import { getProfile } from "@/lib/repositories";
 import { nearbySuppliers, supplierLocationParams, validCoordinates, getCurrentSupplierLocation, DEFAULT_SUPPLIER_RADIUS_KM, type Coordinates } from "@/lib/supplier-location";
+
+import { recommendSuppliers } from "@/lib/supplier-recommendations";
 
 export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: { searchQuery?: string; filterType?: string }) {
     const { user } = useAuth();
@@ -121,6 +123,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
 
     const hasLocation = !!supplierLocationParams(profile, currentLocation);
     const visibleSuppliers = filterType === 'all' ? suppliers : suppliers.filter(supplier => supplier.type === filterType);
+    const recommendations = recommendSuppliers(visibleSuppliers, radiusKm, profile?.crops || []);
     const busy = locating || (!profileLoaded && !currentLocation) || loading;
     return (
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/30">
@@ -160,9 +163,21 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 {busy ? <div className="flex justify-center p-8"><LoadingSpinner message={locating ? 'Finding your current location...' : 'Finding nearby suppliers...'} variant="sparkle" /></div>
                 : error ? <div role="alert" className="rounded-xl bg-amber-50 p-5 text-amber-900"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRetry(value => value + 1)}>Try again</Button></div>
                 : !hasLocation ? <div className="py-8 text-center"><p className="mb-4 text-slate-600">Use My Location above, or save your city to see suppliers near you.</p><Button asChild><Link href="/profile">Set my location</Link></Button></div>
-                : visibleSuppliers.length ? <div className="grid gap-4">{visibleSuppliers.map((supplier, index) => <SupplierCard key={supplier.id} supplier={supplier} index={index} />)}</div>
+                : visibleSuppliers.length ? <>
+                    <section aria-labelledby="recommendations-title" className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 sm:p-6">
+                        <div className="mb-5 flex items-start justify-between gap-3">
+                            <div><h2 id="recommendations-title" className="flex items-center gap-2 text-xl font-bold text-emerald-950"><Award className="h-6 w-6 text-emerald-700" />Top picks near you</h2>
+                            <p className="mt-2 text-sm text-slate-600">A shortlist from matching nearby listings, balancing customer ratings, review count and distance.</p></div>
+                            {recommendations.length > 0 && <Badge className="shrink-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{recommendations.length} recommended</Badge>}
+                        </div>
+                        {recommendations.length ? <div className="grid gap-4 xl:grid-cols-3">{recommendations.map((supplier, index) => <RecommendedSupplierCard key={supplier.id} supplier={supplier} first={index === 0} />)}</div>
+                        : <p className="text-sm text-slate-600">No reviewed matches in this search yet. Explore the nearby suppliers below or adjust your search.</p>}
+                        <p className="mt-4 text-xs leading-5 text-slate-500">Ratings are dated Google Maps snapshots, not live scores. Recommendations cover our reviewed listings, not every shop. Confirm stock, price and delivery with the supplier.</p>
+                    </section>
+                    <div><h2 className="mb-4 text-xl font-bold text-slate-900">All nearby suppliers <span className="text-sm font-normal text-slate-500">· Nearest first</span></h2><div className="grid gap-4">{visibleSuppliers.map((supplier, index) => <SupplierCard key={supplier.id} supplier={supplier} index={index} />)}</div></div>
+                </>
                 : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km of your location.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another crop or product, or check your selected location.'}</p></div>}
-                {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>{directoryUpdatedAt ? ` · Map directory updated ${directoryUpdatedAt}` : ''}. Contact the supplier to confirm stock and services.</p>}
+                {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings, reviewed public businesses and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>{directoryUpdatedAt ? ` · Map directory updated ${directoryUpdatedAt}` : ''}. Contact the supplier to confirm stock and services.</p>}
             </CardContent>
         </Card>
     );
@@ -217,7 +232,7 @@ export const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: n
                             <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
                                 {supplier.name}
                             </h3>
-                            {supplier.source && <p className="mt-1 text-xs text-slate-500">{supplier.source === 'registered' ? 'Registered on AgriGuard' : 'Public map listing'}</p>}
+                            {supplier.source && <p className="mt-1 text-xs text-slate-500">{supplier.source === 'registered' ? 'Registered on AgriGuard' : supplier.source === 'public-review' ? 'Public business listing · Not registered on AgriGuard' : 'Public map listing'}</p>}
                             <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm text-emerald-700 underline underline-offset-2">{supplier.location.address || supplier.location.city} · View on map</a>
                             <div className="flex flex-wrap items-center gap-4 mt-2">
                                 <div className="flex items-center gap-1">
@@ -229,7 +244,7 @@ export const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: n
                                 <div className="flex items-center gap-1">
                                     <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
                                     <span className="text-sm font-medium">
-                                        {supplier.rating && supplier.rating > 0 ? supplier.rating.toFixed(1) : 'No rating'}
+                                        {supplier.rating && supplier.rating > 0 ? supplier.rating.toFixed(1) : 'No rating'}{supplier.reviewEvidence ? ` (${supplier.reviewEvidence.count.toLocaleString('en-US')} reviews)` : ''}
                                     </span>
                                 </div>
                             </div>
@@ -295,4 +310,20 @@ export const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: n
             </div>
         </div>
     );
+}
+
+function RecommendedSupplierCard({ supplier, first }: { supplier: Supplier; first: boolean }) {
+    const evidence = supplier.reviewEvidence!;
+    const directions = `https://www.google.com/maps/dir/?api=1&destination=${supplier.location.coordinates.lat},${supplier.location.coordinates.lng}`;
+    const phone = supplier.contact.phone.replace(/[^+0-9]/g, '');
+    return <article className={`flex min-w-0 flex-col rounded-xl border bg-white p-5 shadow-sm ${first ? 'border-emerald-500' : 'border-emerald-100'}`}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">{first ? 'Top match' : 'Recommended nearby'}</span><span className="flex items-center gap-1 text-xs text-slate-600"><MapPin className="h-3 w-3" />{supplier.distance!.toFixed(1)} km away</span></div>
+        <div className="flex items-start gap-3"><span className="rounded-full bg-slate-50 p-3"><Store className="h-5 w-5 text-emerald-700" /></span><div className="min-w-0"><h3 className="text-lg font-bold leading-6 text-slate-900">{supplier.name}</h3><p className="mt-1 text-xs leading-5 text-slate-500">{supplier.location.address}</p></div></div>
+        <p className="mt-4 flex items-center gap-2 text-sm"><Star className="h-4 w-4 fill-amber-400 text-amber-400" /><strong>{supplier.rating.toFixed(1)}</strong><span className="text-slate-500">({evidence.count.toLocaleString('en-US')} reviews)</span></p>
+        <p className="mt-1 text-xs text-slate-500">Google Maps · Checked {evidence.checkedAt}</p>
+        <div className="mt-4 flex flex-wrap gap-2">{supplier.products.slice(0, 2).map(product => <span key={product} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">{product}</span>)}</div>
+        <div className="my-4 flex-1 rounded-lg bg-emerald-50 p-3"><h4 className="flex items-center gap-2 text-sm font-semibold text-emerald-800"><Leaf className="h-4 w-4" />Why this pick</h4><p className="mt-2 text-sm leading-6 text-slate-600">{evidence.summary}</p></div>
+        <div className="flex flex-wrap gap-2">{phone.length >= 7 && <Button asChild className="min-h-11 flex-1 bg-emerald-700 hover:bg-emerald-800"><a href={`tel:${phone}`}><Phone className="me-2 h-4 w-4" />Call shop</a></Button>}<Button asChild variant="outline" className="min-h-11 flex-1 border-emerald-700 text-emerald-800"><a href={directions} target="_blank" rel="noopener noreferrer"><MapPin className="me-2 h-4 w-4" />Directions</a></Button></div>
+        <a href={evidence.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-8 items-center text-sm font-semibold text-emerald-800 underline underline-offset-2">Read reviews →</a>
+    </article>;
 }
