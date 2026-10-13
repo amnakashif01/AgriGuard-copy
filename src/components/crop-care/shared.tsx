@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Check, Loader2, Plus, Sprout } from "lucide-react";
 import { preparePlantPhoto } from "@/lib/my-crops/images";
 import {
+  careDay,
   outcomes,
   latestOutcome,
   type CareAction,
@@ -28,17 +29,12 @@ export const panel =
 export const select =
   "h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm";
 export const primary = "bg-emerald-700 text-white hover:bg-emerald-800";
-export const today = () => {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
-};
+export const today = () => careDay();
 export function date(v: string) {
   return v
     ? new Date(v.length === 10 ? v + "T12:00:00" : v).toLocaleDateString(
         undefined,
-        { day: "numeric", month: "short", year: "numeric" },
+        { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Karachi" },
       )
     : "Date not saved";
 }
@@ -276,7 +272,7 @@ export function SeasonForm({
         )}
       </div>
       <p className="text-xs leading-5 text-slate-500">
-        Each planting has its own record. For a permanent tree, create a new
+        Dates use Pakistan time. Each planting has its own record. For a permanent tree, create a new
         season under the same tree name. Older diagnoses stay in their original
         cycle.
       </p>
