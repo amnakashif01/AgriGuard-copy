@@ -6,6 +6,7 @@ import { getAuth, onIdTokenChanged, type Auth, type User } from 'firebase/auth';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/agrisahayak/loading-spinner';
+import { hasOwnerRole } from '@/lib/owner-admin';
 
 // ─── ADMIN phone numbers (E.164 format) ──────────────────────────────────────
 export const ADMIN_PHONES = ['+923001234567', '+923244149474'];
@@ -24,6 +25,7 @@ interface AuthContextType {
   /** true if current user has admin access */
   isAdmin: boolean;
   hasGlobalAdminAccess: boolean;
+  isOwner: boolean;
   /** phone number of the current user (Firebase or demo session) */
   userPhone: string | null;
 }
@@ -91,7 +93,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const token = await firebaseUser.getIdTokenResult();
             if (firebase.auth.currentUser?.uid === firebaseUser.uid) {
-              setHasGlobalAdminAccess(token.claims.admin === true);
+              setHasGlobalAdminAccess(hasOwnerRole({ ...token.claims, email: firebaseUser.email }));
             }
           } catch (error) {
             console.warn('Could not verify administrator role:', error);
@@ -107,7 +109,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = hasGlobalAdminAccess || ADMIN_PHONES.includes(userPhone || '');
 
   return (
-    <AuthContext.Provider value={{ user, isUserLoading, auth: firebase.auth, isAdmin, hasGlobalAdminAccess, userPhone }}>
+    <AuthContext.Provider value={{ user, isUserLoading, auth: firebase.auth, isAdmin, hasGlobalAdminAccess, isOwner: hasGlobalAdminAccess, userPhone }}>
       {children}
     </AuthContext.Provider>
   );

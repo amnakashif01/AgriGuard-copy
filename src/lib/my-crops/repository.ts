@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, limit, runTransaction, type Firestore } from 'firebase/firestore';
 import { getDb } from '../firestore';
 import { diagnosisNotification } from '../notification-data';
 import type { InstantDiagnosisFromImageAndSymptomsOutput } from '@/ai/flows/instant-diagnosis-from-image-and-symptoms';
@@ -6,6 +6,8 @@ import { cleanName, nameId, nameKey, plantCode, validateName, type MyCrop, type 
 
 export async function addCrop(uid: string, rawName: string, db: Firestore = getDb()): Promise<string> {
   const name = validateName(rawName, 'crop');
+  const existing = await getDocs(query(collection(db, 'users', uid, 'crops'), where('nameKey', '==', nameKey(name)), limit(1)));
+  if (!existing.empty) throw new Error('This crop is already in My Crops. Open its card to add a plant.');
   const id = await nameId(name);
   const ref = doc(db, 'users', uid, 'crops', id);
   await runTransaction(db, async transaction => {

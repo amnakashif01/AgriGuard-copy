@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, isUserLoading, auth, isAdmin } = useAuth();
+    const { user, isUserLoading, auth, isOwner } = useAuth();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const { t, i18n } = useTranslation();
 
@@ -53,6 +53,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         window.addEventListener('profileUpdated', fetchProfile);
         return () => window.removeEventListener('profileUpdated', fetchProfile);
     }, [user]);
+
+    // Only a visible signed-in tab sends a bounded presence heartbeat.
+    useEffect(() => {
+        if (!user) return;
+        let stopped = false;
+        let running = false;
+        const heartbeat = async () => {
+            if (stopped || running || document.visibilityState !== 'visible') return;
+            running = true;
+            try {
+                const token = await user.getIdToken();
+                const response = await fetch('/api/account/activity', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+                if (response.status === 401 && !stopped && auth.currentUser?.uid === user.uid) await auth.signOut();
+            } catch { /* Presence never interrupts the farmer's work on connection failure. */ }
+            finally { running = false; }
+        };
+        void heartbeat();
+        const interval = setInterval(() => void heartbeat(), 60000);
+        document.addEventListener('visibilitychange', heartbeat);
+        return () => { stopped = true; clearInterval(interval); document.removeEventListener('visibilitychange', heartbeat); };
+    }, [user, auth]);
 
     // Show loading while auth is resolving
     if (isUserLoading) {
@@ -105,30 +126,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     const breadcrumbs = generateBreadcrumbs();
+    const ownerView = isOwner && pathname === '/admin';
 
-    // Only show Admin tab to admin phone numbers
+    // Everyone keeps their own activity view; only a verified owner gets management controls.
     const menuItems = [
         { href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
         { href: '/my-crops', label: t('nav.my_crops'), icon: Sprout },
         { href: '/report/new', label: t('nav.new_report'), icon: PlusCircle },
         { href: '/marketplace', label: t('nav.marketplace'), icon: ShoppingCart },
         { href: '/profile', label: t('nav.profile'), icon: User },
-        ...(isAdmin ? [{ href: '/admin', label: t('nav.admin'), icon: Shield }] : []),
+        { href: '/admin', label: isOwner ? 'Admin Panel' : t('nav.admin'), icon: Shield },
     ];
 
     return (
         <>
             <SkipToMain />
-            <SidebarProvider defaultOpen={true}>
+            <SidebarProvider defaultOpen={true} style={ownerView ? { '--sidebar-background': '158 58% 16%', '--sidebar-foreground': '150 30% 94%' } as React.CSSProperties : undefined}>
                 <Sidebar variant="inset" collapsible="icon">
-                <SidebarHeader className="border-b border-emerald-100/50 bg-gradient-to-b from-emerald-50/80 via-green-50/40 to-white">
+                <SidebarHeader className={ownerView ? 'border-b border-white/10 bg-emerald-950' : 'border-b border-emerald-100/50 bg-gradient-to-b from-emerald-50/80 via-green-50/40 to-white'}>
                   <Link href="/" aria-label="AgriGuard home" className="flex items-center gap-2.5 rounded-xl px-2 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
                     <div className="p-2 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-xl shadow-lg group-data-[collapsible=icon]:p-2 transition-shadow hover:shadow-xl">
                       <Leaf className="h-6 w-6 text-white group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5 drop-shadow-sm" />
                     </div>
                     <div className="group-data-[collapsible=icon]:hidden">
-                      <span className="text-xl font-bold font-headline bg-gradient-to-r from-emerald-700 via-green-600 to-teal-600 bg-clip-text text-transparent">AgriGuard</span>
-                      <p className="text-xs text-gray-500 font-medium">AI-Powered Farming</p>
+                      <span className={ownerView ? 'text-xl font-bold text-white' : 'text-xl font-bold font-headline bg-gradient-to-r from-emerald-700 via-green-600 to-teal-600 bg-clip-text text-transparent'}>AgriGuard</span>
+                      <p className={`text-xs font-medium ${ownerView ? 'text-emerald-200' : 'text-gray-500'}`}>{ownerView ? 'Owner workspace' : 'AI-Powered Farming'}</p>
                     </div>
                   </Link>
                 </SidebarHeader>
@@ -136,7 +158,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <SidebarMenu className="space-y-3">
                         {menuItems.map((item) => {
                             const isActive = pathname === item.href || (item.href === '/my-crops' && pathname.startsWith('/my-crops/'));
-                            // Only show Admin to admin users, assume true for now, can implement real check
                             return (
                                 <SidebarMenuItem key={item.href}>
                                     <FocusRing focusClassName="ring-primary ring-2 ring-offset-2 rounded-md">
@@ -144,7 +165,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                             asChild 
                                             isActive={isActive} 
                                             tooltip={item.label}
-                                            className={`group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 hover:bg-green-50 hover:text-green-700 hover:scale-[1.02] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg ${isActive ? "bg-green-50 text-green-800 border-s-4 border-green-600 shadow-sm font-semibold" : "text-gray-600"}`}
+                                            className={`group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 hover:bg-green-50 hover:text-green-700 hover:scale-[1.02] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg ${ownerView ? (isActive ? "!bg-emerald-700 !text-white font-semibold" : "!text-emerald-100 hover:!bg-emerald-800") : isActive ? "bg-green-50 text-green-800 border-s-4 border-green-600 shadow-sm font-semibold" : "text-gray-600"}`}
                                             aria-label={`Navigate to ${item.label}`}
                                         >
                                             <Link 
@@ -152,7 +173,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                                 className="flex items-center gap-3 focus:outline-none"
                                                 aria-current={isActive ? "page" : undefined}
                                             >
-                                                <item.icon className={`h-5 w-5 flex-shrink-0 transition-colors ${isActive ? "text-green-600" : "text-gray-500 group-hover:text-green-600"}`} aria-hidden="true" />
+                                                <item.icon className={`h-5 w-5 flex-shrink-0 transition-colors ${ownerView ? "text-emerald-100" : isActive ? "text-green-600" : "text-gray-500 group-hover:text-green-600"}`} aria-hidden="true" />
                                                 <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                                             </Link>
                                         </SidebarMenuButton>

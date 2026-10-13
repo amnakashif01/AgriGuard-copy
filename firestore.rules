@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function enabled() { return signedIn() && (!exists(/databases/$(database)/documents/account_controls/$(request.auth.uid)) || get(/databases/$(database)/documents/account_controls/$(request.auth.uid)).data.disabled == false); }
+    function owner(uid) { return enabled() && request.auth.uid == uid; }
+    function admin() { return enabled() && request.auth.token.get('admin', false) == true && request.auth.token.get('owner', false) == true && request.auth.token.get('email', '') == 'admin.agriguard@gmail.com'; }
+    // These collections are server-managed only; clients cannot grant themselves roles.
+    match /account_controls/{uid} { allow read, write: if false; }
+    match /account_presence/{uid} { allow read, write: if false; }
+    match /community_profiles/{uid}/{document=**} { allow read, write: if false; }
+    match /owner_audit/{id} { allow read, write: if false; }
+    match /profiles/{uid} {
+      allow read: if owner(uid) || admin();
+      allow create, update: if owner(uid) && request.resource.data.uid == uid && request.resource.data.phone == request.auth.token.get('phone_number', '');
+      allow delete: if owner(uid);
+    }
+    match /users/{uid}/{document=**} {
+      allow read, write: if owner(uid);
+    }
+    match /suppliers/{id} {
+      allow read: if enabled();
+      allow write: if admin();
+    }
+    match /marketplace/{id} {
+      allow read: if enabled();
+      allow create: if enabled() && request.resource.data.sellerId == request.auth.uid;
+      allow update: if enabled() && resource.data.sellerId == request.auth.uid && request.resource.data.sellerId == resource.data.sellerId;
+      allow delete: if enabled() && resource.data.sellerId == request.auth.uid;
+    }
+    match /supplier_contacts/{id} {
+      allow read, delete: if enabled() && resource.data.userId == request.auth.uid;
+      allow create: if enabled() && request.resource.data.userId == request.auth.uid;
+      allow update: if enabled() && resource.data.userId == request.auth.uid && request.resource.data.userId == resource.data.userId;
+    }
+    match /supplier_ratings/{id} {
+      allow read: if enabled();
+      allow create: if enabled() && request.resource.data.userId == request.auth.uid && request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
+    }
+    match /logs/{id} {
+      allow create: if enabled();
+      allow read: if admin();
+    }
+    match /agent_decisions/{id} {
+      allow create: if enabled();
+      allow read: if admin();
+    }
+  }
+}

@@ -13,10 +13,21 @@ import { AdminLog } from "@/lib/models";
 import LoadingSpinner from "@/components/agrisahayak/loading-spinner";
 import { useAuth } from "@/firebase";
 import Link from "next/link";
+import CommunityPanel from '@/components/agrisahayak/community-panel';
+import OwnerDashboard from "@/components/agrisahayak/owner-dashboard";
 
 
 export default function AdminPage() {
-    const { user, isAdmin, isUserLoading, hasGlobalAdminAccess } = useAuth();
+    const { isOwner, isUserLoading } = useAuth();
+    const [view, setView] = useState<'activity' | 'community'>('activity');
+    if (isUserLoading) return <LoadingSpinner message="Loading account access..." />;
+    return <div className="space-y-6"><div className="flex flex-wrap gap-2" role="group" aria-label="Admin sections"><Button variant={view === 'activity' ? 'default' : 'outline'} onClick={() => setView('activity')}>{isOwner ? 'Owner management' : 'My activity'}</Button><Button variant={view === 'community' ? 'default' : 'outline'} onClick={() => setView('community')}>Farmer community</Button></div>{view === 'community' ? <CommunityPanel/> : isOwner ? <OwnerDashboard/> : <PersonalActivity/>}</div>;
+}
+
+function PersonalActivity() {
+    const { user, isUserLoading } = useAuth();
+    const isAdmin = Boolean(user);
+    const hasGlobalAdminAccess = false;
     const [logs, setLogs] = useState<AdminLog[]>([]);
     const [chartData, setChartData] = useState<{date: string, reports: number}[]>([]);
     const [adminStats, setAdminStats] = useState<{totalReportsToday: number, activeUsers: number, avgConfidence: string, avgResponseTime: string}>({
@@ -99,7 +110,7 @@ export default function AdminPage() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
-                        <p className="text-sm text-muted-foreground">{hasGlobalAdminAccess ? 'Live project activity' : 'Live activity for this demo account'}</p>
+                        <p className="text-sm text-muted-foreground">{hasGlobalAdminAccess ? 'Live project activity' : 'Live activity for your account'}</p>
                     </div>
                 </div>
                 <Button
@@ -115,7 +126,7 @@ export default function AdminPage() {
             </div>
 
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-            {!hasGlobalAdminAccess && <p className="text-sm text-muted-foreground">These figures show this account’s saved reports and activity. Project-wide data requires a verified administrator account.</p>}
+            {!hasGlobalAdminAccess && <p className="text-sm text-muted-foreground">These figures show this account’s saved reports and activity. Only the website owner can manage other farmer accounts.</p>}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard
                     title="Total Reports Today"
