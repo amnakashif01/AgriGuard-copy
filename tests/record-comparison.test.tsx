@@ -2,7 +2,7 @@ import React from 'react';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { comparePlantRecords, completedPlantRecords } from '../src/lib/my-crops/record-comparison';
+import { comparePlantRecords, completedPlantRecords, recordsInCareSeason } from '../src/lib/my-crops/record-comparison';
 import { PlantProgressComparison, RecordChange, PairComparisonDetails, ComparisonCards } from '../src/components/my-crops/record-comparison';
 import { plantComparisonHistory, resolveComparisonPair, comparisonWindow } from '../src/lib/my-crops/comparison-history';
 import type { PlantRecord } from '../src/lib/my-crops/models';
@@ -257,4 +257,16 @@ test('selected photos, report links, scores and finding rows all belong to the c
   const changedSelection = comparisonWindow(history, 1, resolveComparisonPair(history.complete, 'test-3', 'test-1'));
   assert.deepEqual(changedSelection.entries.map(entry => entry.number), [1, 3]);
   assert.equal(changedSelection.entries[1].comparison!.change, 5);
+});
+
+
+test('merged workspace never compares another season, plant, crop or unassigned check', () => {
+  const rows = [record('old-season', 1, 80), record('current-a', 2, 50), record('current-b', 3, 20), record('unassigned', 4, 0), record('another-plant', 5, 20, 'Early blight', {plantId: 'plant-b'})];
+  const reports = rows.map(r => ({id: r.reportId, cropId: r.cropId, plantId: r.plantId, careSeasonId: r.id === 'old-season' ? '2025' : r.id === 'unassigned' ? '' : '2026'}));
+  const current = recordsInCareSeason(rows, reports, '2026', 'tomato', 'plant-a');
+  assert.deepEqual(current.map(r => r.id), ['current-a', 'current-b']);
+  assert.deepEqual(recordsInCareSeason(rows, reports, '2025', 'tomato', 'plant-a').map(r => r.id), ['old-season']);
+  assert.deepEqual(recordsInCareSeason(rows, reports, '2026', 'wheat', 'plant-a'), []);
+  assert.deepEqual(recordsInCareSeason(rows, reports, '', 'tomato', 'plant-a'), []);
+  assert.equal(rows.length, 5, 'original history remains intact');
 });

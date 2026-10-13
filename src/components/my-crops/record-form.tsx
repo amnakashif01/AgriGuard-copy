@@ -24,6 +24,8 @@ export function RecordForm({ cropId, plantId }: { cropId: string; plantId?: stri
   const plantState = useCropData<MyPlant>(plantId ? `crops/${cropId}/plants/${plantId}` : null);
   const crop = cropState.data[0];
   const plant = plantId ? plantState.data[0] : undefined;
+  const [preferredSeasonId, setPreferredSeasonId] = useState('');
+  useEffect(() => { setPreferredSeasonId(new URLSearchParams(window.location.search).get('careSeasonId') || ''); }, []);
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [symptoms, setSymptoms] = useState('');
@@ -65,7 +67,7 @@ export function RecordForm({ cropId, plantId }: { cropId: string; plantId?: stri
       }
       setStage('Analyzing your plant…');
       await analyzeSavedPlantRecord(user.uid, cropId, target.plantId, target.reportId, i18n.language === 'urdu' ? 'urdu' : 'english');
-      router.push(`/my-crops/${cropId}/${target.plantId}`);
+      router.push(preferredSeasonId ? `/report/${target.reportId}?careSeasonId=${encodeURIComponent(preferredSeasonId)}` : `/my-crops/${cropId}/${target.plantId}`);
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not analyze your plant. Please try again.'); }
     finally { busy.current = false; setStage(''); }
   }

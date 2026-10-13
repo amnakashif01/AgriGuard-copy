@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays, ChevronDown, Loader2, Plus, RotateCcw } from 'lucide-react';
@@ -9,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { type MyCrop, type MyPlant, type PlantRecord } from '@/lib/my-crops/models';
 import { analyzeSavedPlantRecord, recoverSavedSeverity } from '@/lib/my-crops/analyze-record';
 import { RecordSummary } from './record-summary';
-import { PlantProgressComparison, RecordChange } from './record-comparison';
-import { completedPlantRecords } from '@/lib/my-crops/record-comparison';
 import { deletePlantRecord } from '@/lib/my-crops/delete-record';
 import { DeleteRecordButton } from './delete-record-button';
 import { CropFrame, ErrorNotice, greenButton, LoadState, useCropData } from './shared';
+
+const CropWorkspace = dynamic(() => import('@/components/crop-care/crop-workspace'), { loading: () => <p role="status">Opening reports and care…</p> });
 
 function RecordDetails({ record }: { record: PlantRecord }) {
   const result = record.diagnosis;
@@ -41,8 +42,6 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
   const crop = crops.data[0], plant = plants.data[0];
   const loading = crops.loading || plants.loading || records.loading;
   const error = crops.error || plants.error || records.error;
-  const completeRecords = completedPlantRecords(records.data, cropId, plantId);
-  const previousRecords = new Map(completeRecords.map((record, index) => [record.id, completeRecords[index - 1]]));
   async function retry(record: PlantRecord) {
     if (!user || busyId) return;
     setBusyId(record.id); setRetryError('');
@@ -57,12 +56,14 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
     catch (error) { setRetryError(error instanceof Error ? error.message : 'The severity estimate is unavailable. Your report is still saved.'); }
     finally { setBusyId(''); }
   }
-  return <CropFrame wide title={crop ? `${crop.name} Health Records` : 'Health Records'} eyebrow="PLANT TIMELINE" subtitle={plant ? `${plant.name} · ${plant.code}` : undefined} back={{ href: `/my-crops/${cropId}`, label: crop?.name || 'Back to crop' }}>
+  return <CropFrame wide title={plant?.name || crop?.name || 'My Crops'} eyebrow="MY CROPS" subtitle={plant ? `${plant.name} · ${plant.code}` : undefined} back={{ href: `/my-crops/${cropId}`, label: crop?.name || 'Back to crop' }}>
     <LoadState loading={loading} error={error} missing={!loading && (!crop || !plant)} />
     {!loading && !error && crop && plant && <div>
-      <p className="mb-7 text-xs leading-5 text-slate-500">Your saved photos and analyses appear in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
+      <Suspense fallback={<p role="status">Opening crop care…</p>}><CropWorkspace crop={crop} plant={plant} /></Suspense>
+      <details className="mt-5 rounded-2xl border border-emerald-100 bg-white p-5"><summary className="cursor-pointer font-semibold text-emerald-950">Manage original plant records</summary>
+      <p className="mb-7 mt-4 text-xs leading-5 text-slate-500">Your saved photos and analyses appear in this timeline. Severity is an AI estimate of visible symptoms from 0–100; it is separate from diagnosis confidence.</p>
       {retryError && <ErrorNotice message={retryError} />}
-      <PlantProgressComparison key={`${cropId}/${plantId}`} records={records.data} cropId={cropId} plantId={plantId} />
+
       <div className="space-y-6 border-s-2 border-emerald-200 ps-5 sm:ps-7">
         {records.data.map((record, index) => <article key={record.id}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="relative text-base font-semibold text-emerald-950"><span aria-hidden="true" className="absolute -start-[27px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-[#f6f8f2] bg-emerald-600 sm:-start-[35px]" />{record.age}</h2><span className="flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />{new Date(record.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · Record {index + 1}</span></div>
@@ -70,7 +71,7 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center"><img src={record.imageThumb} alt={`${plant.name}, ${record.age}, record ${index + 1}`} className="h-44 w-full rounded-2xl bg-emerald-50 object-cover sm:h-32 sm:w-32" />
               {record.status === 'Complete' ? <RecordSummary record={record} busy={Boolean(busyId)} retrying={busyId === record.id} onRetrySeverity={() => retrySeverity(record)} /> : <div className="min-w-0 flex-1"><h3 className="font-semibold text-emerald-950">{busyId === record.id ? 'Analyzing your plant…' : record.status === 'Error' ? 'Analysis needs a retry' : 'Analysis not yet completed'}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{record.error || 'Your photo and record are saved. If the earlier analysis was interrupted, you can retry here.'}</p><Button type="button" variant="outline" disabled={Boolean(busyId)} onClick={() => retry(record)} className="mt-4 rounded-xl">{busyId === record.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}{busyId === record.id ? 'Analyzing…' : 'Retry analysis'}</Button></div>}
             </div>
-            {record.status === 'Complete' && <RecordChange current={record} previous={previousRecords.get(record.id)} />}
+
             <RecordDetails record={record} />
             <div className="mt-4 flex justify-end border-t border-emerald-50 pt-4"><DeleteRecordButton label={`record ${index + 1} for ${plant.name}`} disabled={Boolean(busyId) || !user} onDelete={async () => {
               if (!user) throw new Error('Please sign in to delete this report.');
@@ -80,7 +81,8 @@ export function TimelinePage({ cropId, plantId }: { cropId: string; plantId: str
         </article>)}
       </div>
       {records.data.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No health records yet. Add your first photo below.</p>}
-      <Button asChild className={`mt-8 w-full ${greenButton}`}><Link href={`/my-crops/${cropId}/${plantId}/new`}><Plus className="mr-2 h-5 w-5" />Add new record</Link></Button>
+      </details>
+      <Button asChild className={`mt-5 w-full ${greenButton}`}><Link href={`/my-crops/${cropId}/${plantId}/new`}><Plus className="mr-2 h-5 w-5" />Add new record</Link></Button>
     </div>}
   </CropFrame>;
 }

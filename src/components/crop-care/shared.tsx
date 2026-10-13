@@ -1,6 +1,7 @@
 "use client";
 import {
   useCallback,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -34,7 +35,12 @@ export function date(v: string) {
   return v
     ? new Date(v.length === 10 ? v + "T12:00:00" : v).toLocaleDateString(
         undefined,
-        { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Karachi" },
+        {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "Asia/Karachi",
+        },
       )
     : "Date not saved";
 }
@@ -121,6 +127,9 @@ export function SeasonForm({
   initial,
   crop = "",
   cropId,
+  plantId,
+  field = "",
+  startedOn,
   reportId,
   onSave,
   onCancel,
@@ -129,6 +138,9 @@ export function SeasonForm({
   initial?: CareSeason;
   crop?: string;
   cropId?: string;
+  plantId?: string;
+  field?: string;
+  startedOn?: string;
   reportId?: string;
   onSave: (id: string) => void;
   onCancel: () => void;
@@ -149,9 +161,10 @@ export function SeasonForm({
       : {
           crop,
           cropId,
-          field: "",
+          ...(plantId ? { plantId } : {}),
+          field,
           label: "",
-          startedOn: today(),
+          startedOn: startedOn || today(),
           status: "active",
         },
   );
@@ -246,7 +259,7 @@ export function SeasonForm({
               setValues({
                 ...values,
                 status: e.target.value as SeasonInput["status"],
-                ...(e.target.value === "active" ? {endedOn: undefined} : {}),
+                ...(e.target.value === "active" ? { endedOn: undefined } : {}),
               })
             }
           >
@@ -272,9 +285,9 @@ export function SeasonForm({
         )}
       </div>
       <p className="text-xs leading-5 text-slate-500">
-        Dates use Pakistan time. Each planting has its own record. For a permanent tree, create a new
-        season under the same tree name. Older diagnoses stay in their original
-        cycle.
+        Dates use Pakistan time. Each planting has its own record. For a
+        permanent tree, create a new season under the same tree name. Older
+        diagnoses stay in their original cycle.
       </p>
       {error && <ErrorBox>{error}</ErrorBox>}
       <div className="flex gap-2">
@@ -305,6 +318,9 @@ export function EventComposer({
   api,
   onSaved,
   reports = [],
+  initialKind = "applied",
+  initialOutcome = "Not yet checked",
+  compact = false,
 }: {
   report: CareReport;
   season: CareSeason;
@@ -312,16 +328,19 @@ export function EventComposer({
   api: CareApi;
   onSaved: () => void;
   reports?: CareReport[];
+  initialKind?: "applied" | "followup";
+  initialOutcome?: CareEvent["outcome"];
+  compact?: boolean;
 }) {
-  const [kind, setKind] = useState<"applied" | "followup">("applied"),
+  const formId = useId();
+  const [kind, setKind] = useState<"applied" | "followup">(initialKind),
     [product, setProduct] = useState(""),
     [category, setCategory] = useState<
       "pesticide" | "cultural" | "biological" | "monitoring" | "other"
     >("pesticide"),
-    [occurredOn, setOccurredOn] = useState(today()),
+    [occurredOn, setOccurredOn] = useState(season.endedOn || today()),
     [notes, setNotes] = useState(""),
-    [outcome, setOutcome] =
-      useState<(typeof outcomes)[number]>("Not yet checked"),
+    [outcome, setOutcome] = useState<(typeof outcomes)[number]>(initialOutcome),
     [treatmentId, setTreatmentId] = useState(""),
     [image, setImage] = useState<string>(),
     [followupReportId, setFollowupReportId] = useState(""),
@@ -329,9 +348,11 @@ export function EventComposer({
     [photoBusy, setPhotoBusy] = useState(false),
     [error, setError] = useState("");
   const requestId = useRef(crypto.randomUUID());
-  const applied = events.filter(
-    (e) => e.kind === "applied" && !e.voidedAt && e.reportId === report.id,
-  );
+  const applied = events.filter((e) => e.kind === "applied" && !e.voidedAt);
+  const treatmentReport =
+    reports.find(
+      (r) => r.id === applied.find((e) => e.id === treatmentId)?.reportId,
+    ) || report;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy || photoBusy) return;
@@ -344,7 +365,11 @@ export function EventComposer({
           action: "event.add",
           requestId: requestId.current,
           seasonId: season.id,
-          reportId: report.id,
+          reportId:
+            kind === "followup"
+              ? applied.find((entry) => entry.id === treatmentId)?.reportId ||
+                report.id
+              : report.id,
           kind,
           product: kind === "applied" ? product : "",
           category,
@@ -373,9 +398,7 @@ export function EventComposer({
     <section className={panel}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold">
-          {kind === "applied"
-            ? "What did you actually apply?"
-            : "Add a follow-up observation"}
+          {kind === "applied" ? "What I Used" : "Add a follow-up observation"}
         </h3>
         <div className="flex gap-2">
           <Button
@@ -400,11 +423,11 @@ export function EventComposer({
         {kind === "applied" ? (
           <>
             <div>
-              <Label htmlFor="care-product">
+              <Label htmlFor={`${formId}-care-product`}>
                 Pesticide / treatment actually used
               </Label>
               <Input
-                id="care-product"
+                id={`${formId}-care-product`}
                 value={product}
                 required
                 maxLength={160}
@@ -415,10 +438,16 @@ export function EventComposer({
                 Record what you used, even if it differs from the AI suggestion.
               </p>
             </div>
-            <div>
-              <Label htmlFor="care-category">Treatment category</Label>
+            <details className="text-sm">
+              <summary className="cursor-pointer font-medium text-emerald-800">
+                Treatment type ·{" "}
+                {category === "pesticide" ? "Pesticide" : category}
+              </summary>
+              <Label htmlFor={`${formId}-care-category`} className="mt-3 block">
+                Treatment category
+              </Label>
               <select
-                id="care-category"
+                id={`${formId}-care-category`}
                 className={select}
                 value={category}
                 onChange={(e) => setCategory(e.target.value as typeof category)}
@@ -435,14 +464,16 @@ export function EventComposer({
                 </option>
                 <option value="other">Other</option>
               </select>
-            </div>
+            </details>
           </>
         ) : (
           <>
             <div>
-              <Label htmlFor="care-treatment">Which applied treatment?</Label>
+              <Label htmlFor={`${formId}-care-treatment`}>
+                Which applied treatment?
+              </Label>
               <select
-                id="care-treatment"
+                id={`${formId}-care-treatment`}
                 className={select}
                 required
                 value={treatmentId}
@@ -462,9 +493,11 @@ export function EventComposer({
               )}
             </div>
             <div>
-              <Label htmlFor="care-outcome">Condition you observed</Label>
+              <Label htmlFor={`${formId}-care-outcome`}>
+                Condition you observed
+              </Label>
               <select
-                id="care-outcome"
+                id={`${formId}-care-outcome`}
                 className={select}
                 value={outcome}
                 onChange={(e) => setOutcome(e.target.value as typeof outcome)}
@@ -476,11 +509,11 @@ export function EventComposer({
             </div>
             {reports.length > 1 && (
               <div>
-                <Label htmlFor="care-followup-report">
+                <Label htmlFor={`${formId}-care-followup-report`}>
                   Follow-up diagnosis (optional)
                 </Label>
                 <select
-                  id="care-followup-report"
+                  id={`${formId}-care-followup-report`}
                   className={select}
                   value={followupReportId}
                   onChange={(e) => setFollowupReportId(e.target.value)}
@@ -489,7 +522,8 @@ export function EventComposer({
                   {reports
                     .filter(
                       (r) =>
-                        r.id !== report.id && r.createdAt > report.createdAt,
+                        r.id !== treatmentReport.id &&
+                        r.createdAt > treatmentReport.createdAt,
                     )
                     .map((r) => (
                       <option key={r.id} value={r.id}>
@@ -503,11 +537,11 @@ export function EventComposer({
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="care-date">
+            <Label htmlFor={`${formId}-care-date`}>
               {kind === "applied" ? "Applied / performed on" : "Follow-up date"}
             </Label>
             <Input
-              id="care-date"
+              id={`${formId}-care-date`}
               required
               type="date"
               min={season.startedOn}
@@ -516,10 +550,17 @@ export function EventComposer({
               onChange={(e) => setOccurredOn(e.target.value)}
             />
           </div>
-          <div>
-            <Label htmlFor="care-photo">Supporting photo (optional)</Label>
+        </div>
+        <details className="rounded-xl border border-emerald-100 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-emerald-800">
+            + Add photo or note
+          </summary>
+          <div className="mt-3 space-y-3">
+            <Label htmlFor={`${formId}-care-photo`}>
+              Supporting photo (optional)
+            </Label>
             <Input
-              id="care-photo"
+              id={`${formId}-care-photo`}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               disabled={photoBusy || busy}
@@ -540,36 +581,38 @@ export function EventComposer({
               }}
             />
           </div>
-        </div>
-        {image && (
-          <div className="flex items-center gap-3">
-            <img
-              src={image}
-              alt="Care entry photo preview"
-              className="h-20 w-20 rounded-lg object-cover"
+          {image && (
+            <div className="flex items-center gap-3">
+              <img
+                src={image}
+                alt="Care entry photo preview"
+                className="h-20 w-20 rounded-lg object-cover"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setImage(undefined)}
+              >
+                Remove photo
+              </Button>
+            </div>
+          )}
+          <div>
+            <Label htmlFor={`${formId}-care-notes`}>
+              Your notes (optional)
+            </Label>
+            <Textarea
+              id={`${formId}-care-notes`}
+              value={notes}
+              maxLength={2000}
+              placeholder="What you did or noticed…"
+              onChange={(e) => setNotes(e.target.value)}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setImage(undefined)}
-            >
-              Remove photo
-            </Button>
           </div>
-        )}
-        <div>
-          <Label htmlFor="care-notes">Your notes (optional)</Label>
-          <Textarea
-            id="care-notes"
-            value={notes}
-            maxLength={2000}
-            placeholder="What you did or noticed…"
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
+        </details>
         {error && <ErrorBox>{error}</ErrorBox>}
         <Button
-          className={primary}
+          className={primary + (compact ? " w-full" : "")}
           disabled={busy || photoBusy || (kind === "followup" && !treatmentId)}
         >
           {busy || photoBusy ? (
@@ -577,7 +620,7 @@ export function EventComposer({
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          {kind === "applied" ? "Save treatment record" : "Save follow-up"}
+          {kind === "applied" ? "Save treatment" : "Save follow-up"}
         </Button>
         <p className="text-xs text-slate-500">
           Saved observations are farmer-reported. Each follow-up adds to the
@@ -654,7 +697,8 @@ export function CareTimeline({
               </p>
               {outcome && (
                 <p className="mt-1 text-sm text-emerald-800">
-                  Follow-up in loaded history: {outcome.outcome} · reported by farmer
+                  Follow-up in loaded history: {outcome.outcome} · reported by
+                  farmer
                 </p>
               )}
               {orphaned && (

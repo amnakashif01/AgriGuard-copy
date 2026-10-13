@@ -2,16 +2,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowRight,
+  Check,
+  ChevronDown,
   History,
   Leaf,
   Loader2,
   Plus,
   RefreshCw,
-  Link2,
-  ExternalLink,
+  Sprout,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type {
   CareEvent,
   CarePage,
@@ -20,7 +29,11 @@ import type {
   HistoryResult,
   HistoricalMatch,
 } from "@/lib/crop-care/models";
-import { latestOutcome } from "@/lib/crop-care/models";
+import {
+  careDay,
+  latestOutcome,
+  reportFitsSeason,
+} from "@/lib/crop-care/models";
 import {
   Busy,
   CareTimeline,
@@ -37,6 +50,114 @@ import {
   type Scope,
 } from "./shared";
 
+export function careRecordHref(season: CareSeason) {
+  const base = season.cropId
+    ? `/my-crops/${encodeURIComponent(season.cropId)}${season.plantId ? `/${encodeURIComponent(season.plantId)}` : ""}`
+    : "/my-crops/health";
+  return `${base}?seasonId=${encodeURIComponent(season.id)}`;
+}
+
+function HistoryMatch({
+  match: m,
+  onOpen,
+  summary = false,
+}: {
+  match: HistoricalMatch;
+  onOpen?: (id: string) => void;
+  summary?: boolean;
+}) {
+  const treatments = m.treatments.filter(
+    (e) => e.kind === "applied" && !e.voidedAt,
+  );
+  const shown = summary ? treatments.slice(-1) : treatments;
+  return (
+    <article className="min-w-0 rounded-xl border border-emerald-100 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 className="font-semibold text-emerald-950">
+            {m.season?.label || "Season not assigned"}
+          </h4>
+          <p className="mt-1 text-xs text-slate-500">
+            {date(m.report.createdAt)}
+            {m.season
+              ? ` · ${m.season.status === "completed" ? "Harvested crop cycle" : "Separate crop cycle"}`
+              : " · Planting not confirmed"}
+          </p>
+        </div>
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+          {m.match === "same" ? "Same saved diagnosis" : "Similar / uncertain"}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div>
+          <p className="text-xs text-slate-500">Earlier issue</p>
+          <p className="mt-1 break-words text-sm font-medium">
+            {m.report.disease}
+          </p>
+        </div>
+        <div className="sm:col-span-2">
+          {shown.length ? (
+            shown.map((e) => {
+              const outcome = m.moreCareAvailable
+                ? undefined
+                : latestOutcome(m.treatments, e.id);
+              return (
+                <div key={e.id} className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-slate-500">You recorded using</p>
+                    <p className="mt-1 break-words text-sm font-medium">
+                      {e.product}
+                    </p>
+                    {!summary && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        {date(e.occurredOn)}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Your follow-up</p>
+                    <p className="mt-1 text-sm font-medium text-emerald-800">
+                      {outcome?.outcome ||
+                        (m.moreCareAvailable
+                          ? "Open full record"
+                          : "Not recorded")}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-sm text-slate-500">
+              No actual treatment was recorded.
+            </p>
+          )}
+        </div>
+      </div>
+      {!summary && (
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          {m.explanation}
+          {m.fieldRelation === "different" ? " Different growing area." : ""}
+          {m.moreCareAvailable
+            ? " More care entries are available in the saved report."
+            : ""}
+        </p>
+      )}
+      {onOpen ? (
+        <Button variant="link" size="sm" onClick={() => onOpen(m.report.id)}>
+          Open past record <ArrowRight className="ml-1 h-3 w-3" />
+        </Button>
+      ) : (
+        <Link
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-emerald-800 underline"
+          href={`/report/${m.report.id}`}
+        >
+          Open past record <ArrowRight className="h-3 w-3" />
+        </Link>
+      )}
+    </article>
+  );
+}
+
 export function HistoricalInsights({
   reportId,
   api,
@@ -46,9 +167,10 @@ export function HistoricalInsights({
   api: CareApi;
   onOpen?: (id: string) => void;
 }) {
-  const [data, setData] = useState<HistoryResult | null>(null),
-    [busy, setBusy] = useState(true),
-    [error, setError] = useState("");
+  const [data, setData] = useState<HistoryResult | null>(null);
+  const [busy, setBusy] = useState(true),
+    [error, setError] = useState(""),
+    [open, setOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     setData(null);
@@ -59,7 +181,9 @@ export function HistoricalInsights({
       undefined,
       controller.signal,
     )
-      .then(setData)
+      .then((v) => {
+        if (!controller.signal.aborted) setData(v);
+      })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       })
@@ -92,150 +216,382 @@ export function HistoricalInsights({
       setBusy(false);
     }
   }
+  const matches = [...(data?.matches || [])].sort((a, b) =>
+    b.report.createdAt.localeCompare(a.report.createdAt),
+  );
+  const known = matches.find((m) => m.season);
+  const first = known || matches[0];
+  const loadMore = data?.nextCursor ? (
+    <Button type="button" variant="outline" disabled={busy} onClick={more}>
+      {busy ? "Loading…" : "Check more history across all years"}
+    </Button>
+  ) : null;
   return (
-    <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-      <h3 className="flex items-center gap-2 font-semibold text-emerald-950">
-        <History className="h-5 w-5" />
-        Your previous crop history
-      </h3>
-      <p className="mt-1 text-xs text-slate-600">
-        Compares saved diagnosis labels across crop cycles. No extra diagnosis
-        request.
-      </p>
-      {error && (
-        <div className="mt-3">
-          <ErrorBox>{error}</ErrorBox>
-        </div>
-      )}
-      {busy && !data && <Busy>Looking for relevant earlier records…</Busy>}
-      {data && (
-        <div className="mt-4 space-y-3">
-          {!data.matches.length && (
-            <p className="text-sm text-slate-600">
-              {data.previousCount
-                ? "No matching disease or pest was found in the earlier records checked. A different issue or uncertain diagnosis is not treated as a recurrence."
-                : data.nextCursor
-                  ? "No earlier record in this batch. Load more history to check other records."
-                  : "No earlier record found for this crop. This diagnosis can start your care history."}
-            </p>
-          )}
-          {data.matches.map((m) => (
-            <HistoryMatch key={m.report.id} match={m} onOpen={onOpen} />
-          ))}
-          {data.unassignedCount > 0 && (
-            <p className="text-xs text-slate-500">
-              {data.unassignedCount} earlier{" "}
-              {data.unassignedCount === 1 ? "report has" : "reports have"} no
-              assigned season. Dates alone do not establish which planting they
-              belonged to.
-            </p>
-          )}
-          {data.nextCursor && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={more}
-            >
-              {busy ? "Loading…" : "Load more history across all years"}
-            </Button>
-          )}
-        </div>
-      )}
-      <p className="mt-3 text-xs leading-5 text-slate-500">
-        Past improvement is farmer-reported, not proof that a product caused it.
-        A past product is not automatically recommended for today’s diagnosis.
-      </p>
-    </section>
+    <>
+      <section
+        aria-label="Earlier crop history"
+        className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5"
+      >
+        <h3 className="flex items-center gap-2 font-semibold text-emerald-950">
+          <History className="h-5 w-5 shrink-0" />
+          {known
+            ? "Found in an earlier season"
+            : first
+              ? "Similar earlier record"
+              : "Your past crop records"}
+        </h3>
+        {busy && !data && <Busy>Checking your saved crop history…</Busy>}
+        {error && (
+          <div className="mt-3">
+            <ErrorBox>{error}</ErrorBox>
+          </div>
+        )}
+        {data && (
+          <div className="mt-3 space-y-3">
+            {first ? (
+              <HistoryMatch match={first} summary onOpen={onOpen} />
+            ) : (
+              <p className="text-sm text-slate-600">
+                {data.nextCursor
+                  ? "No match in the records checked so far. Check more history below."
+                  : data.previousCount
+                    ? "No matching disease or pest found in the earlier records checked."
+                    : "No earlier record found for this crop yet."}
+              </p>
+            )}
+            {first && (
+              <p className="text-xs leading-5 text-slate-500">
+                Past treatment and improvement are your saved observations. They
+                do not automatically become today’s recommendation.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {(matches.length > 0 || data.unassignedCount > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOpen(true)}
+                >
+                  View past records
+                  {matches.length > 1 ? ` (${matches.length})` : ""}
+                </Button>
+              )}
+              {loadMore}
+            </div>
+          </div>
+        )}
+      </section>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Past seasons & crop records</DialogTitle>
+            <DialogDescription>
+              Earlier crop cycles stay separate from this season. Matches use
+              saved diagnosis labels.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {matches.map((m) => (
+              <HistoryMatch key={m.report.id} match={m} onOpen={onOpen} />
+            ))}
+            {Boolean(data?.unassignedCount) && (
+              <p className="text-xs text-slate-500">
+                {data?.unassignedCount} earlier reports have no assigned season.
+                Their dates alone do not establish a planting.
+              </p>
+            )}
+            {loadMore}
+            {error && <ErrorBox>{error}</ErrorBox>}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
-function HistoryMatch({
-  match: m,
-  onOpen,
+
+export function CareJourney({
+  report,
+  season,
+  events,
+  api,
+  readOnly,
+  reports = [],
+  onChanged,
+  onMore,
+  moreBusy = false,
 }: {
-  match: HistoricalMatch;
-  onOpen?: (id: string) => void;
+  report: CareReport;
+  season: CareSeason;
+  events: CarePage<CareEvent>;
+  api: CareApi;
+  readOnly: boolean;
+  reports?: CareReport[];
+  onChanged: () => void;
+  onMore?: () => void;
+  moreBusy?: boolean;
 }) {
-  const applied = m.treatments.filter(
-    (e) => e.kind === "applied" && !e.voidedAt,
+  const [diaryOpen, setDiaryOpen] = useState(false);
+  const [followup, setFollowup] = useState<CareEvent["outcome"] | null>(null);
+  const [stepIndex, setStepIndex] = useState(0),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const requestId = useRef(crypto.randomUUID());
+  const step = report.plan?.steps[stepIndex];
+  const planned = events.items.some(
+    (e) =>
+      e.reportId === report.id &&
+      e.kind === "planned" &&
+      !e.voidedAt &&
+      e.suggestion?.title === step?.title,
   );
+  const recent = [...events.items]
+    .sort(
+      (a, b) =>
+        b.occurredOn.localeCompare(a.occurredOn) ||
+        b.createdAt.localeCompare(a.createdAt),
+    )
+    .slice(0, 3);
+  async function plan() {
+    if (busy || !step) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(
+        {},
+        {
+          action: "event.add",
+          requestId: requestId.current,
+          seasonId: season.id,
+          reportId: report.id,
+          kind: "planned",
+          product: "",
+          category: "other",
+          occurredOn: today(),
+          notes: "",
+          outcome: "Not yet checked",
+          stepIndex,
+        },
+      );
+      requestId.current = crypto.randomUUID();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not record the plan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const more =
+    events.nextCursor && onMore ? (
+      <Button variant="outline" size="sm" disabled={moreBusy} onClick={onMore}>
+        {moreBusy ? "Loading…" : "Load more care entries"}
+      </Button>
+    ) : null;
   return (
-    <article className="rounded-xl border border-emerald-100 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="font-medium">
-          {m.season ? m.season.label : "Season not assigned"} ·{" "}
-          {date(m.report.createdAt)}
-        </h4>
-        <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-900">
-          {m.match === "same"
-            ? "Same recorded diagnosis"
-            : "Similar / uncertain"}
-        </span>
-      </div>
-      <p className="mt-2 text-sm">{m.report.disease}</p>
-      {m.season && (
-        <p className="mt-1 text-xs text-slate-500">
-          {m.season.field} ·{" "}
-          {m.season.status === "completed"
-            ? "Harvested / completed"
-            : "Separate crop cycle"}
-          {m.fieldRelation === "different" ? " · Different growing area" : ""}
-        </p>
-      )}
-      <p className="mt-2 text-xs leading-5 text-slate-600">{m.explanation}</p>
-      {applied.length ? (
-        <div className="mt-3 space-y-2">
-          {applied.map((e) => {
-            const o = m.moreCareAvailable
-              ? undefined
-              : latestOutcome(m.treatments, e.id);
-            return (
-              <div key={e.id} className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p>
-                  <strong>You recorded:</strong> {e.product} ·{" "}
+    <div className="space-y-4">
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <section className={panel}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-emerald-950">
+              <Sprout className="h-5 w-5" />
+              Care diary
+            </h3>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDiaryOpen(true)}
+            >
+              View all entries
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Treatments and observations saved in this season.
+          </p>
+          <ol className="my-5 space-y-4">
+            {recent.map((e) => (
+              <li
+                key={e.id}
+                className={`border-l-2 border-emerald-200 pl-3 ${e.voidedAt ? "opacity-60" : ""}`}
+              >
+                <span className="text-xs text-slate-500">
                   {date(e.occurredOn)}
+                </span>
+                <p className="mt-1 break-words text-sm font-medium">
+                  {e.kind === "followup" ? e.outcome : e.product}
                 </p>
-                <p className="mt-1 text-slate-600">
-                  Outcome:{" "}
-                  {o
-                    ? `${o.outcome} — reported by farmer`
-                    : m.moreCareAvailable
-                      ? "Open the full record for all observations"
-                      : "Not yet checked / not recorded"}
-                </p>
-                {e.suggestion && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    AI suggestion then: {e.suggestion.title}
+                <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                  {e.voidedAt
+                    ? "Voided"
+                    : e.kind === "planned"
+                      ? "Planned · not applied"
+                      : e.kind === "applied"
+                        ? "Actually used"
+                        : "Your observation"}
+                </span>
+              </li>
+            ))}
+            {!recent.length && (
+              <li className="text-sm text-slate-500">
+                No care entries yet. Record what you actually used or performed.
+              </li>
+            )}
+          </ol>
+          {!readOnly && (
+            <div className="border-t border-emerald-100 pt-4">
+              <p className="text-sm font-medium">How is your crop now?</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["Better", "Improved"],
+                    ["Same", "No change"],
+                    ["Worse", "Worsened"],
+                  ] as const
+                ).map(([label, value]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant="outline"
+                    className="px-2"
+                    onClick={() => setFollowup(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Choose a saved treatment and date before saving your update.
+              </p>
+            </div>
+          )}
+        </section>
+        {!readOnly && (
+          <EventComposer
+            key={report.id + season.id}
+            compact
+            report={report}
+            season={season}
+            events={events.items}
+            api={api}
+            reports={reports}
+            onSaved={onChanged}
+          />
+        )}
+      </div>
+      <details className={panel + " group"}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold text-emerald-900">
+          AI suggested care{" "}
+          <ChevronDown className="h-4 w-4 group-open:rotate-180" />
+        </summary>
+        <p className="mt-3 text-xs text-slate-500">
+          From this diagnosis report. Suggestions are separate from treatments
+          actually used.
+        </p>
+        {report.plan?.steps.length ? (
+          <div className="mt-4 space-y-3">
+            <Label htmlFor="care-step">Suggested care step</Label>
+            <select
+              id="care-step"
+              className={select}
+              value={stepIndex}
+              onChange={(e) => setStepIndex(Number(e.target.value))}
+            >
+              {report.plan.steps.map((s, i) => (
+                <option key={i} value={i}>
+                  {i + 1}. {s.title}
+                </option>
+              ))}
+            </select>
+            {step && (
+              <div className="space-y-2 text-sm">
+                <p>{step.description}</p>
+                {step.materials.length > 0 && (
+                  <p>
+                    <strong>Suggested materials:</strong>{" "}
+                    {step.materials.join(", ")}
                   </p>
                 )}
+                {step.timing && (
+                  <p>
+                    <strong>Timing:</strong> {step.timing}
+                  </p>
+                )}
+                {step.safetyNotes && <p>{step.safetyNotes}</p>}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="mt-2 text-xs text-slate-500">
-          No actual treatment was recorded for this diagnosis.
+            )}
+            {!readOnly && (
+              <Button
+                className={primary}
+                disabled={busy || planned || season.status === "completed"}
+                onClick={plan}
+              >
+                {planned ? "Plan recorded · not applied" : "I plan to use this"}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-600">
+            No treatment plan was saved. You can still record the care or
+            monitoring you performed.
+          </p>
+        )}
+        <p className="mt-3 text-xs text-slate-500">
+          Check the product label and local authorization before use. A past
+          product or dose is not automatically suitable today.
         </p>
-      )}
-      {m.moreCareAvailable && (
-        <p className="mt-2 text-xs text-slate-500">
-          Showing a portion of this diagnosis’s care entries. Open the saved
-          report to load its full history.
-        </p>
-      )}
-      {onOpen ? (
-        <Button variant="link" size="sm" onClick={() => onOpen(m.report.id)}>
-          Open saved report
-        </Button>
-      ) : (
-        <Link
-          className="mt-3 inline-block text-sm text-emerald-800 underline"
-          href={"/report/" + m.report.id}
-        >
-          Open saved report
-        </Link>
-      )}
-    </article>
+        {error && <ErrorBox>{error}</ErrorBox>}
+      </details>
+      <Dialog open={diaryOpen} onOpenChange={setDiaryOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Full care diary</DialogTitle>
+            <DialogDescription>
+              Planned care, actual treatments and dated follow-ups remain
+              separate.
+            </DialogDescription>
+          </DialogHeader>
+          <CareTimeline
+            events={events.items}
+            seasonId={season.id}
+            api={api}
+            readOnly={readOnly}
+            onChanged={onChanged}
+          />
+          {more}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={followup !== null}
+        onOpenChange={(v) => {
+          if (!v) setFollowup(null);
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Update crop condition</DialogTitle>
+            <DialogDescription>
+              Record your observation against an applied treatment.
+            </DialogDescription>
+          </DialogHeader>
+          {followup && (
+            <EventComposer
+              key={followup}
+              compact
+              initialKind="followup"
+              initialOutcome={followup}
+              report={report}
+              season={season}
+              events={events.items}
+              api={api}
+              reports={reports}
+              onSaved={() => {
+                setFollowup(null);
+                onChanged();
+              }}
+            />
+          )}
+          {more}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -249,6 +605,7 @@ export default function ReportCare({
   scope = {},
   preferredSeasonId = "",
   showLink = true,
+  compact = false,
   onOpen,
   onLinked,
   reports = [],
@@ -257,26 +614,30 @@ export default function ReportCare({
   scope?: Scope;
   preferredSeasonId?: string;
   showLink?: boolean;
+  compact?: boolean;
   onOpen?: (id: string) => void;
   onLinked?: (seasonId: string) => void;
   reports?: CareReport[];
 }) {
   const { api, ready, readOnly } = useCareApi(scope);
-  const [context, setContext] = useState<Context | null>(null),
-    [events, setEvents] = useState<CarePage<CareEvent>>({
-      items: [],
-      nextCursor: null,
-    }),
-    [busy, setBusy] = useState(false),
+  const [context, setContext] = useState<Context | null>(null);
+  const [events, setEvents] = useState<CarePage<CareEvent>>({
+    items: [],
+    nextCursor: null,
+  });
+  const [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [choice, setChoice] = useState<"existing" | "new">("existing"),
-    [selected, setSelected] = useState(preferredSeasonId),
-    [newOpen, setNewOpen] = useState(false),
-    [stepIndex, setStepIndex] = useState(0),
+    [eventsLoading, setEventsLoading] = useState(false);
+  const [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const [choice, setChoice] = useState<"existing" | "new">("existing"),
+    [selected, setSelected] = useState(preferredSeasonId);
+  const [newOpen, setNewOpen] = useState(false),
+    [careOpen, setCareOpen] = useState(false),
     [revision, setRevision] = useState(0);
-  const planRequest = useRef(crypto.randomUUID());
+  const linkedCallback = useRef(onLinked);
+  linkedCallback.current = onLinked;
+  const refresh = useCallback(() => setRevision((v) => v + 1), []);
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
@@ -289,75 +650,77 @@ export default function ReportCare({
       undefined,
       controller.signal,
     )
-      .then(async (c) => {
-        if (controller.signal.aborted) return;
-        setContext(c);
-        onLinked?.(c.season?.id || "");
-        setLoading(false);
-        setStepIndex(0);
-        if (c.season) {
-          const entries = await api<CarePage<CareEvent>>(
-            { resource: "events", seasonId: c.season.id },
-            undefined,
-            controller.signal,
-          );
-          if (!controller.signal.aborted) setEvents(entries);
+      .then((c) => {
+        if (!controller.signal.aborted) {
+          setContext(c);
+          linkedCallback.current?.(c.season?.id || "");
         }
       })
       .catch((e) => {
-        if (!controller.signal.aborted) {
-          setError(e.message);
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [api, ready, reportId, revision]);
+  const seasonId = context?.season?.id;
+  useEffect(() => {
+    if (!seasonId || (compact && !careOpen)) return;
+    const controller = new AbortController();
+    setEventsLoading(true);
+    api<CarePage<CareEvent>>(
+      { resource: "events", seasonId },
+      undefined,
+      controller.signal,
+    )
+      .then((v) => {
+        if (!controller.signal.aborted) setEvents(v);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setEventsLoading(false);
+      });
+    return () => controller.abort();
+  }, [api, seasonId, compact, careOpen, revision]);
   useEffect(() => {
     if (scope.mode !== "community") return;
-    const id = setInterval(() => setRevision((v) => v + 1), 60000);
+    const id = setInterval(refresh, 60000);
     return () => clearInterval(id);
-  }, [scope.mode]);
-  const refresh = useCallback(() => setRevision((v) => v + 1), []);
-  async function link() {
-    if (!selected || busy) return;
+  }, [scope.mode, refresh]);
+  async function mutate(action: "report.link" | "report.unlink") {
+    const target = action === "report.link" ? selected : seasonId;
+    if (!target || busy) return;
     setBusy(true);
     setError("");
     try {
-      await api({}, { action: "report.link", reportId, seasonId: selected });
-      setNotice("Report linked to Health & Care.");
+      await api({}, { action, reportId, seasonId: target });
+      setNotice(
+        action === "report.link"
+          ? "Report saved to My Crops."
+          : "Choose another record below.",
+      );
       refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not link report.");
+      setError(e instanceof Error ? e.message : "Could not save this link.");
     } finally {
       setBusy(false);
     }
   }
-  async function plan() {
-    if (!context?.season || busy) return;
+  async function moreEvents() {
+    if (!events.nextCursor || !seasonId || busy) return;
     setBusy(true);
-    setError("");
     try {
-      await api(
-        {},
-        {
-          action: "event.add",
-          requestId: planRequest.current,
-          seasonId: context.season.id,
-          reportId,
-          kind: "planned",
-          product: "",
-          category: "other",
-          occurredOn: today(),
-          notes: "",
-          outcome: "Not yet checked",
-          stepIndex,
-        },
-      );
-      planRequest.current = crypto.randomUUID();
-      setNotice("Plan saved. Nothing has been marked as applied.");
-      refresh();
+      const next = await api<CarePage<CareEvent>>({
+        resource: "events",
+        seasonId,
+        cursor: events.nextCursor,
+      });
+      setEvents({ ...next, items: [...events.items, ...next.items] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save plan.");
+      setError(e instanceof Error ? e.message : "Could not load care entries.");
     } finally {
       setBusy(false);
     }
@@ -365,53 +728,44 @@ export default function ReportCare({
   if (loading)
     return (
       <section className={panel}>
-        <Busy>Loading Health & Care… Your diagnosis is already available.</Busy>
+        <Busy>Opening crop care… Your diagnosis is ready.</Busy>
       </section>
     );
   if (!context)
     return (
       <section className={panel}>
-        <ErrorBox>{error || "Care record could not be loaded."}</ErrorBox>
+        <ErrorBox>{error || "Care history could not be loaded."}</ErrorBox>
         <Button variant="outline" className="mt-3" onClick={refresh}>
           Retry care history
         </Button>
       </section>
     );
-  const { report, season } = context,
-    step = report.plan?.steps[stepIndex],
-    planned = events.items.some(
-      (e) =>
-        e.reportId === report.id &&
-        e.kind === "planned" &&
-        !e.voidedAt &&
-        e.suggestion?.title === step?.title,
-    );
+  const { report, season } = context;
+  const eligible = context.seasons.items.filter(
+    (s) => !reportFitsSeason(report, s),
+  );
+  const journey = season ? (
+    <CareJourney
+      report={report}
+      season={season}
+      events={events}
+      api={api}
+      readOnly={readOnly}
+      reports={reports}
+      onChanged={refresh}
+      onMore={moreEvents}
+      moreBusy={busy}
+    />
+  ) : (
+    <p className="text-sm text-slate-600">
+      Choose an existing crop season or create a new one to record your care.
+    </p>
+  );
   return (
-    <div className="space-y-5">
-      {!showLink && (
-        <section className={panel}>
-          <div className="flex items-start gap-4">
-            {report.image && (
-              <img
-                src={report.image}
-                alt="Saved crop diagnosis"
-                className="h-24 w-24 rounded-xl object-cover"
-              />
-            )}
-            <div>
-              <h3 className="text-xl font-semibold text-emerald-950">
-                {report.disease}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {report.crop} · {date(report.createdAt)} · {report.severity}
-              </p>
-              <p className="mt-3 text-sm text-slate-600">
-                {report.description}
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
+    <div
+      className="min-w-0 space-y-4"
+      data-care-layout={compact ? "compact" : "workspace"}
+    >
       {error && <ErrorBox>{error}</ErrorBox>}
       {notice && (
         <p
@@ -421,362 +775,255 @@ export default function ReportCare({
           {notice}
         </p>
       )}
-      {showLink && (
+      {!showLink && (
         <section className={panel}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-xl font-semibold">
-              <Leaf className="h-5 w-5 text-emerald-700" />
-              Health & Care
+          <h3 className="text-lg font-semibold">{report.disease}</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {report.crop} · {date(report.createdAt)}
+          </p>
+        </section>
+      )}
+      {(showLink || !season) && (
+        <section className={panel} aria-label="Add report to My Crops">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-emerald-950">
+              {season ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <Leaf className="h-5 w-5" />
+              )}
+              {season ? "Saved in My Crops" : "Add to My Crops"}
             </h2>
             <Button
               variant="ghost"
               size="sm"
-              onClick={refresh}
               aria-label="Refresh care history"
+              onClick={refresh}
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
           {season ? (
             <div className="space-y-3">
-              <p className="font-medium text-emerald-900">
-                {season.crop} · {season.field} · {season.label}
+              <p className="break-words font-medium text-emerald-900">
+                {season.crop} · {season.field}
+              </p>
+              <p className="text-sm text-slate-600">
+                {season.label} ·{" "}
+                {season.status === "completed" ? "Harvested" : "Growing"}
               </p>
               <p className="text-xs text-slate-500">
-                {date(season.startedOn)} –{" "}
-                {season.endedOn ? date(season.endedOn) : "Growing"} ·{" "}
-                {season.status === "completed"
-                  ? "Harvested / completed"
-                  : "Active season"}
+                {date(season.startedOn)}
+                {season.endedOn ? ` – ${date(season.endedOn)}` : ""}
               </p>
-              {!readOnly && scope.mode !== "owner" && (
-                <div className="flex flex-wrap gap-3">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={"/my-crops/health?seasonId=" + season.id}>
-                      Open Health & Care record
-                    </Link>
+              {scope.mode !== "owner" && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={careRecordHref(season)}>
+                    Open crop & care <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+              {!readOnly && (
+                <details className="text-xs text-slate-500">
+                  <summary className="cursor-pointer">
+                    Change linked season
+                  </summary>
+                  <p className="my-2">
+                    Reports with saved care entries must keep their existing
+                    link.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => mutate("report.unlink")}
+                  >
+                    Choose another record
                   </Button>
-                  {!events.items.some(e => e.reportId === report.id) && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        setError("");
-                        try {
-                          await api(
-                            {},
-                            {
-                              action: "report.unlink",
-                              reportId,
-                              seasonId: season.id,
-                            },
-                          );
-                          refresh();
-                        } catch (e) {
-                          setError(
-                            e instanceof Error
-                              ? e.message
-                              : "Could not unlink.",
-                          );
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                    >
-                      Change linked record
-                    </Button>
-                  )}
-                </div>
+                </details>
               )}
             </div>
           ) : readOnly ? (
             <p className="text-sm text-slate-500">
-              No growing season has been assigned to this report.
+              No season has been assigned to this report.
             </p>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-slate-600">
-                Where would you like to save this report’s care history?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={choice === "existing" ? "default" : "outline"}
-                  className={choice === "existing" ? primary : ""}
-                  onClick={() => {
-                    setChoice("existing");
-                    setNewOpen(false);
-                  }}
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Existing Health & Care record
-                </Button>
-                <Button
-                  variant={choice === "new" ? "default" : "outline"}
-                  className={choice === "new" ? primary : ""}
-                  onClick={() => {
-                    setChoice("new");
-                    setNewOpen(true);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  New season / crop cycle
-                </Button>
-              </div>
-              {choice === "existing" && (
-                <>
-                  <Label htmlFor="care-existing">
-                    Choose the matching crop, field and season
-                  </Label>
-                  <select
-                    id="care-existing"
-                    className={select}
-                    value={selected}
-                    onChange={(e) => setSelected(e.target.value)}
-                  >
-                    <option value="">Select a care record</option>
-                    {context.seasons.items.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.crop} · {s.field} · {s.label} ({s.status})
-                      </option>
-                    ))}
-                  </select>
-                  {!context.seasons.items.length && (
-                    <p className="text-sm text-slate-500">
-                      No care record for this crop yet. Create its first season
-                      above.
-                    </p>
-                  )}
-                  {context.seasons.nextCursor && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={async () => {
-                        setBusy(true);
-                        try {
-                          const next = await api<CarePage<CareSeason>>({
-                            resource: "seasons",
-                            crop: report.crop,
-                            cursor: context.seasons.nextCursor!,
-                          });
-                          setContext({
-                            ...context,
-                            seasons: {
-                              ...next,
-                              items: [...context.seasons.items, ...next.items],
-                            },
-                          });
-                        } catch (e) {
-                          setError(
-                            e instanceof Error
-                              ? e.message
-                              : "Could not load seasons.",
-                          );
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
+              <fieldset className="space-y-3">
+                <legend className="mb-3 text-sm text-slate-600">
+                  Where should this report go?
+                </legend>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`care-choice-${reportId}`}
+                    className="h-4 w-4 accent-emerald-700"
+                    checked={choice === "existing"}
+                    onChange={() => setChoice("existing")}
+                  />
+                  Existing crop / season
+                </label>
+                {choice === "existing" && (
+                  <div className="space-y-3">
+                    <Label htmlFor="care-existing" className="sr-only">
+                      Choose crop and season
+                    </Label>
+                    <select
+                      id="care-existing"
+                      className={select}
+                      value={
+                        eligible.some((s) => s.id === selected) ? selected : ""
+                      }
+                      onChange={(e) => setSelected(e.target.value)}
                     >
-                      Load more seasons
-                    </Button>
-                  )}
-                  <Button
-                    className={primary}
-                    disabled={!selected || busy}
-                    onClick={link}
-                  >
-                    {busy ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Link2 className="mr-2 h-4 w-4" />
+                      <option value="">Select crop & season</option>
+                      {eligible.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.crop} · {s.field} · {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    {!eligible.length && (
+                      <p className="text-xs text-slate-500">
+                        No matching record for this report’s date and plant yet.
+                        Create a season or load more records.
+                      </p>
                     )}
-                    Add report to selected record
-                  </Button>
-                  <p className="text-xs text-slate-500">
-                    A new planting needs a new season. Reports outside a
-                    completed season’s dates cannot be added to it.
-                  </p>
-                </>
-              )}
-              {newOpen && (
-                <SeasonForm
-                  crop={report.crop}
-                  cropId={report.cropId || undefined}
-                  reportId={report.id}
-                  api={api}
-                  onCancel={() => {
-                    setNewOpen(false);
-                    setChoice("existing");
-                  }}
-                  onSave={() => {
-                    setNewOpen(false);
-                    setNotice("New season created and report linked.");
-                    refresh();
-                  }}
-                />
-              )}
+                    {context.seasons.nextCursor && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          setError("");
+                          try {
+                            const next = await api<CarePage<CareSeason>>({
+                              resource: "seasons",
+                              crop: report.crop,
+                              cursor: context.seasons.nextCursor!,
+                            });
+                            setContext({
+                              ...context,
+                              seasons: {
+                                ...next,
+                                items: [
+                                  ...context.seasons.items,
+                                  ...next.items,
+                                ],
+                              },
+                            });
+                          } catch (e) {
+                            setError(
+                              e instanceof Error
+                                ? e.message
+                                : "Could not load seasons.",
+                            );
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        Load more seasons
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`care-choice-${reportId}`}
+                    className="h-4 w-4 accent-emerald-700"
+                    checked={choice === "new"}
+                    onChange={() => setChoice("new")}
+                  />
+                  Create new season
+                </label>
+              </fieldset>
+              <Button
+                className={primary + " w-full"}
+                disabled={
+                  busy ||
+                  (choice === "existing" &&
+                    !eligible.some((s) => s.id === selected))
+                }
+                onClick={() =>
+                  choice === "new" ? setNewOpen(true) : mutate("report.link")
+                }
+              >
+                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {choice === "new"
+                  ? "Create & add report"
+                  : "Save to this record"}
+              </Button>
+              <p className="text-xs text-slate-500">
+                Reports and care stay together. Each new planting has its own
+                season.
+              </p>
             </div>
           )}
         </section>
       )}
       <HistoricalInsights
-        key={report.id + ":" + revision}
+        key={report.id + revision}
         reportId={report.id}
         api={api}
         onOpen={onOpen}
       />
-      <div className="grid items-start gap-5 xl:grid-cols-2">
-        <div className="space-y-5">
-          <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <h3 className="font-semibold text-emerald-950">
-              AI Suggested Care
-            </h3>
-            <p className="mt-1 text-xs text-slate-600">
-              Saved diagnosis guidance · not an applied treatment
-            </p>
-            {report.plan?.steps.length ? (
-              <>
-                <Label htmlFor="care-step" className="mt-4 block">
-                  Suggested care step
-                </Label>
-                <select
-                  id="care-step"
-                  className={select + " mt-2"}
-                  value={stepIndex}
-                  onChange={(e) => setStepIndex(Number(e.target.value))}
-                >
-                  {report.plan.steps.map((s, i) => (
-                    <option key={i} value={i}>
-                      {i + 1}. {s.title}
-                    </option>
-                  ))}
-                </select>
-                {step && (
-                  <div className="mt-3 space-y-2 text-sm">
-                    <p className="whitespace-pre-wrap">{step.description}</p>
-                    {step.materials.length > 0 && (
-                      <p>
-                        <strong>Suggested materials:</strong>{" "}
-                        {step.materials.join(", ")}
-                      </p>
-                    )}
-                    {step.timing && (
-                      <p>
-                        <strong>Timing:</strong> {step.timing}
-                      </p>
-                    )}
-                    {step.safetyNotes && (
-                      <p className="text-slate-600">{step.safetyNotes}</p>
-                    )}
-                  </div>
-                )}
-                {!readOnly && (
-                  <Button
-                    type="button"
-                    className={"mt-4 " + primary}
-                    disabled={
-                      busy ||
-                      !season ||
-                      planned ||
-                      season.status === "completed"
-                    }
-                    onClick={plan}
-                  >
-                    {planned
-                      ? "Plan recorded · not applied"
-                      : "I plan to use this"}
-                  </Button>
-                )}
-              </>
-            ) : (
-              <p className="mt-3 text-sm">
-                No treatment plan was saved for this diagnosis. You can still
-                record monitoring or care you actually performed.
-              </p>
-            )}
-            <p className="mt-3 text-xs leading-5 text-slate-600">
-              AI suggestions are not verified product registrations. Confirm the
-              current diagnosis, local authorization and exact product label
-              before selecting a pesticide; never reuse last season’s dose
-              automatically.
-            </p>
-            <a
-              href="https://agripunjab.gov.pk/pw_literature"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-800 underline"
-            >
-              Punjab crop-protection reference library{" "}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            {!season && !readOnly && (
-              <p className="mt-3 text-sm font-medium text-emerald-900">
-                Link this report to a season above to save plans, treatments and
-                follow-ups.
-              </p>
-            )}
-          </section>
-          {season && !readOnly && (
-            <EventComposer
-              key={report.id + ":" + season.id}
-              report={report}
-              season={season}
-              events={events.items}
-              api={api}
-              reports={reports}
-              onSaved={() => {
-                setNotice("Care entry saved.");
-                refresh();
-              }}
-            />
-          )}
-        </div>
-        {season && (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600">Care recorded throughout this season, including earlier diagnoses. These are your saved actions and observations.</p>
-            <CareTimeline
-              key={report.id + ":" + revision}
-              events={events.items}
-              seasonId={season.id}
-              api={api}
-              readOnly={readOnly}
-              onChanged={refresh}
-            />
-            {events.nextCursor && (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    const next = await api<CarePage<CareEvent>>({
-                      resource: "events",
-                      seasonId: season.id,
-                      cursor: events.nextCursor!,
-                    });
-                    setEvents({
-                      ...next,
-                      items: [...events.items, ...next.items],
-                    });
-                  } catch (e) {
-                    setError(
-                      e instanceof Error
-                        ? e.message
-                        : "Could not load care entries.",
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Load more care entries
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+      {compact ? (
+        <>
+          <Button
+            variant="outline"
+            className="h-auto w-full justify-between gap-2 whitespace-normal p-4 text-left"
+            onClick={() => setCareOpen(true)}
+          >
+            <span>Care diary & treatments</span>
+            <ChevronDown className="h-4 w-4 shrink-0" />
+          </Button>
+          <Dialog open={careOpen} onOpenChange={setCareOpen}>
+            <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Care for {report.crop}</DialogTitle>
+                <DialogDescription>
+                  {season
+                    ? `${season.field} · ${season.label}`
+                    : "Save this report to a crop season to begin."}
+                </DialogDescription>
+              </DialogHeader>
+              {eventsLoading ? <Busy>Loading saved care…</Busy> : journey}
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : eventsLoading ? (
+        <Busy>Loading saved care…</Busy>
+      ) : (
+        journey
+      )}
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Create a new crop season</DialogTitle>
+            <DialogDescription>
+              Choose the actual planting dates. This report will be added to the
+              new record.
+            </DialogDescription>
+          </DialogHeader>
+          <SeasonForm
+            crop={report.crop}
+            cropId={report.cropId || undefined}
+            plantId={report.plantId || undefined}
+            startedOn={careDay(report.createdAt)}
+            reportId={report.id}
+            api={api}
+            onCancel={() => setNewOpen(false)}
+            onSave={() => {
+              setNewOpen(false);
+              setNotice("Season created and report saved.");
+              refresh();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

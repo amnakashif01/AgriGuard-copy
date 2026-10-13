@@ -642,6 +642,8 @@ export default function ReportDetailPage() {
                         </Card>
                     )}
 
+            {rawReport?.status === 'Complete' && !/not a crop|not a plant|unknown crop|crop to be identified/i.test(rawReport.crop || 'unknown crop') && <ReportCare compact onLinked={(careSeasonId) => setRawReport(previous => previous && (previous.careSeasonId || "") !== careSeasonId ? {...previous, careSeasonId: careSeasonId || undefined} : previous)} reportId={rawReport.id} preferredSeasonId={careParams.get('careSeasonId') || ''} />}
+
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -1044,7 +1046,7 @@ export default function ReportDetailPage() {
                     </Card>
                 </div>
             </div>
-            {rawReport?.status === 'Complete' && !/not a crop|not a plant|unknown crop|crop to be identified/i.test(rawReport.crop || 'unknown crop') && <ReportCare onLinked={(careSeasonId) => setRawReport(previous => previous && (previous.careSeasonId || "") !== careSeasonId ? {...previous, careSeasonId: careSeasonId || undefined} : previous)} reportId={rawReport.id} preferredSeasonId={careParams.get('careSeasonId') || ''} />}
+
             {isPlanEligible(report) && (
                 <section aria-label="Marketplace suppliers for this diagnosis">
                     <SuppliersCard />
