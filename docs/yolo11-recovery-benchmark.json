@@ -1,0 +1,256 @@
+{
+  "scope": "Integration smoke fixtures, not an accuracy study. Dataset overlap with training may exist; one potato folder label disagrees with both old and new models. Low scores and independent image rejection retain fallback.",
+  "results": [
+    {
+      "precision": "fp32",
+      "expected": "Tomato with Early Blight",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___Early_blight/0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B%208389.JPG",
+      "score": 55.1,
+      "label": "potato early blight",
+      "elapsedMs": 2381,
+      "box": [
+        319.92279052734375,
+        320.2611083984375,
+        640.353759765625,
+        639.8350830078125
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Healthy Tomato Plant",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___healthy/000146ff-92a4-4db6-90ad-8fce2ae4fddd___GH_HL%20Leaf%20259.1.JPG",
+      "score": 21.01,
+      "label": "grape downy mildew",
+      "elapsedMs": 2216,
+      "box": [
+        319.9807434082031,
+        320.1700744628906,
+        639.9752807617188,
+        639.4122924804688
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Corn (Maize) with Common Rust",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Corn_(maize)___Common_rust_/RS_Rust%201563.JPG",
+      "score": 17.75,
+      "label": "citrus canker",
+      "elapsedMs": 2258,
+      "box": [
+        320.19061279296875,
+        320.02642822265625,
+        640.0694580078125,
+        639.986328125
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Potato with Late Blight",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Potato___Late_blight/0051e5e8-d1c4-4a84-bf3a-a426cdad6285___RS_LB%204640.JPG",
+      "score": 89.91,
+      "label": "potato late blight",
+      "elapsedMs": 2197,
+      "box": [
+        319.7960205078125,
+        319.8531494140625,
+        639.523193359375,
+        640.23974609375
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Tomato with Early Blight",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20Early%20blight%20leaf/039b47d574bc4bb8a14259a1cd96a741.jpg",
+      "score": 56.7,
+      "label": "tomato early blight",
+      "elapsedMs": 2227,
+      "box": [
+        335.03851318359375,
+        375.05841064453125,
+        607.256591796875,
+        338.1800537109375
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Corn (Maize) with Common Rust",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Corn%20rust%20leaf/0796.39maizerust.jpg",
+      "score": 97.72,
+      "label": "corn rust",
+      "elapsedMs": 1970,
+      "box": [
+        319.9259948730469,
+        319.20391845703125,
+        638.1605834960938,
+        389.8424072265625
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Potato with Late Blight",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Potato%20leaf%20late%20blight/1421_0.jpeg%3Fitok%3DFMtmgePj.jpg",
+      "score": 80.67,
+      "label": "potato early blight",
+      "elapsedMs": 1822,
+      "box": [
+        319.90283203125,
+        320.7936706542969,
+        638.015380859375,
+        443.82354736328125
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Healthy Tomato Plant",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20leaf/1684.jpg",
+      "score": 84.59,
+      "label": "tomato leaf",
+      "elapsedMs": 1773,
+      "box": [
+        318.2042236328125,
+        320.0193786621094,
+        527.579833984375,
+        639.8374633789062
+      ]
+    },
+    {
+      "precision": "fp32",
+      "expected": "Negative control, no plant",
+      "score": 0,
+      "label": "basil leaf",
+      "elapsedMs": 1831,
+      "box": [
+        320.8209533691406,
+        321.597412109375,
+        609.6344604492188,
+        647.3330078125
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Tomato with Early Blight",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___Early_blight/0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B%208389.JPG",
+      "score": 55.22,
+      "label": "potato early blight",
+      "elapsedMs": 2073,
+      "box": [
+        320,
+        320.25,
+        640,
+        640
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Healthy Tomato Plant",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Tomato___healthy/000146ff-92a4-4db6-90ad-8fce2ae4fddd___GH_HL%20Leaf%20259.1.JPG",
+      "score": 21.08,
+      "label": "grape downy mildew",
+      "elapsedMs": 2048,
+      "box": [
+        320,
+        320.25,
+        640,
+        639.5
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Corn (Maize) with Common Rust",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Corn_(maize)___Common_rust_/RS_Rust%201563.JPG",
+      "score": 17.68,
+      "label": "citrus canker",
+      "elapsedMs": 1825,
+      "box": [
+        320.25,
+        320,
+        640,
+        640
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Potato with Late Blight",
+      "source": "https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/raw/color/Potato___Late_blight/0051e5e8-d1c4-4a84-bf3a-a426cdad6285___RS_LB%204640.JPG",
+      "score": 89.89,
+      "label": "potato late blight",
+      "elapsedMs": 1834,
+      "box": [
+        319.75,
+        320,
+        639.5,
+        640
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Tomato with Early Blight",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20Early%20blight%20leaf/039b47d574bc4bb8a14259a1cd96a741.jpg",
+      "score": 56.64,
+      "label": "tomato early blight",
+      "elapsedMs": 1822,
+      "box": [
+        334.75,
+        375.25,
+        607.5,
+        337.5
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Corn (Maize) with Common Rust",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Corn%20rust%20leaf/0796.39maizerust.jpg",
+      "score": 97.71,
+      "label": "corn rust",
+      "elapsedMs": 1856,
+      "box": [
+        320,
+        319.25,
+        638,
+        390
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Potato with Late Blight",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Potato%20leaf%20late%20blight/1421_0.jpeg%3Fitok%3DFMtmgePj.jpg",
+      "score": 80.62,
+      "label": "potato early blight",
+      "elapsedMs": 1862,
+      "box": [
+        320,
+        320.75,
+        638,
+        444
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Healthy Tomato Plant",
+      "source": "https://raw.githubusercontent.com/pratikkayal/PlantDoc-Dataset/master/test/Tomato%20leaf/1684.jpg",
+      "score": 84.57,
+      "label": "tomato leaf",
+      "elapsedMs": 2186,
+      "box": [
+        318.25,
+        320,
+        527.5,
+        640
+      ]
+    },
+    {
+      "precision": "fp16",
+      "expected": "Negative control, no plant",
+      "score": 0,
+      "label": "basil leaf",
+      "elapsedMs": 2073,
+      "box": [
+        321,
+        321.5,
+        609,
+        647
+      ]
+    }
+  ],
+  "combinedPeakRssMiB": 1221
+}
