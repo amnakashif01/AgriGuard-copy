@@ -8,6 +8,7 @@ import {
 } from "firebase-admin/firestore";
 import { adminServices, OwnerError } from "./owner-auth";
 import {
+  careDay,
   cropKey,
   cropNames,
   diseaseMatch,
@@ -405,7 +406,7 @@ export async function careWrite(
   input: CareAction,
 ) {
   const now = new Date().toISOString(),
-    today = now.slice(0, 10);
+    today = careDay(now);
   const audit = s.db.collection(`users/${uid}/careAudit`).doc();
   const result = await s.db.runTransaction(async (t) => {
     // Account/crop locks are read in the same transaction as mutations, including cross-account owner writes.
@@ -556,7 +557,7 @@ export async function careWrite(
         throw new OwnerError(
           "Choose a treatment/check date within this season, up to today.",
         );
-      if (input.occurredOn < report.createdAt.slice(0, 10))
+      if (input.occurredOn < careDay(report.createdAt))
         throw new OwnerError(
           "A care entry for this diagnosis cannot predate its capture.",
         );
@@ -598,8 +599,8 @@ export async function careWrite(
           !follow.exists ||
           follow.data()?.careSeasonId !== season.id ||
           follow.data()?.status !== "Complete" ||
-          (dateValue(follow.data()?.createdAt) || "").slice(0, 10) <
-            report.createdAt.slice(0, 10)
+          careDay(dateValue(follow.data()?.createdAt) || "") <
+            careDay(report.createdAt)
         )
           throw new OwnerError(
             "Choose a later completed report in this season.",
