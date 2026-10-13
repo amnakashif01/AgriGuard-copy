@@ -1,6 +1,8 @@
 import { iso1A2Code } from '@rapideditor/country-coder';
-import { collection, getDocsFromServer } from 'firebase/firestore';
-import { getDb } from './firestore';
+import { deleteApp, initializeServerApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { collection, getDocs, getFirestore } from 'firebase/firestore/lite';
+import { firebaseConfig } from './firestore';
 import type { Supplier } from './models';
 import { nearbySuppliers, validCoordinates, matchesSupplierQuery, type Coordinates } from './supplier-location';
 
@@ -68,15 +70,27 @@ export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promis
   return data.elements.map(osmSupplier).filter((supplier: MarketplaceSupplier | null): supplier is MarketplaceSupplier => supplier !== null);
 }
 
-async function loadRegisteredSuppliers(): Promise<Supplier[]> {
+export async function loadRegisteredSuppliers(authIdToken?: string): Promise<Supplier[]> {
+  // Continue only this caller's session. Firestore still enforces its rules;
+  // no admin credential or shared mutable server-side sign-in is used.
+  if (authIdToken && authIdToken.length > 10000) throw new Error('Invalid marketplace session');
+  const app = initializeServerApp(firebaseConfig, { authIdToken });
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const snapshot = await Promise.race([
-      getDocsFromServer(collection(getDb(), 'suppliers')),
-      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Registered supplier lookup timed out')), 5000); }),
+    return await Promise.race([
+      (async () => {
+        const auth = getAuth(app);
+        await auth.authStateReady();
+        if (authIdToken && !auth.currentUser) throw new Error('Marketplace session expired');
+        const snapshot = await getDocs(collection(getFirestore(app), 'suppliers'));
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Supplier));
+      })(),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Registered supplier lookup timed out')), 8000); }),
     ]);
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Supplier));
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+    await deleteApp(app);
+  }
 }
 
 export async function searchMarketplace(origin: Coordinates, radiusKm: number, query: string, registered = loadRegisteredSuppliers) {
