@@ -3,15 +3,15 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Star, Phone, MessageCircle, Clock, Truck, Award, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { MapPin, Star, Phone, MessageCircle, Clock, Truck, Award, Users, LocateFixed } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LoadingSpinner from "./loading-spinner";
 import ContactSupplierDialog from "./contact-supplier-dialog";
 import type { Supplier, UserProfile } from "@/lib/models";
 import { useAuth } from "@/firebase";
 import { getProfile } from "@/lib/repositories";
-import { nearbySuppliers, supplierLocationParams, validCoordinates, DEFAULT_SUPPLIER_RADIUS_KM } from "@/lib/supplier-location";
+import { nearbySuppliers, supplierLocationParams, validCoordinates, getCurrentSupplierLocation, DEFAULT_SUPPLIER_RADIUS_KM, type Coordinates } from "@/lib/supplier-location";
 
 export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: { searchQuery?: string; filterType?: string }) {
     const { user } = useAuth();
@@ -23,6 +23,35 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
     const [radiusKm, setRadiusKm] = useState(DEFAULT_SUPPLIER_RADIUS_KM);
     const [locationLabel, setLocationLabel] = useState('');
     const [retry, setRetry] = useState(0);
+    const [currentLocation, setCurrentLocation] = useState<(Coordinates & { accuracy: number }) | null>(null);
+    const [locating, setLocating] = useState(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [warnings, setWarnings] = useState<string[]>([]);
+    const locationRequest = useRef(0);
+
+    useEffect(() => {
+        setCurrentLocation(null);
+        setLocationError(null);
+        setLocating(false);
+        return () => { locationRequest.current += 1; };
+    }, [user?.uid]);
+
+    const useMyLocation = async () => {
+        const request = ++locationRequest.current;
+        setLocating(true);
+        setLocationError(null);
+        setSuppliers([]);
+        try {
+            const point = await getCurrentSupplierLocation(navigator.geolocation);
+            if (request !== locationRequest.current) return;
+            setLocationLabel('');
+            setCurrentLocation(point);
+        } catch (cause) {
+            if (request === locationRequest.current) setLocationError(cause instanceof Error ? cause.message : 'Unable to find your location.');
+        } finally {
+            if (request === locationRequest.current) setLocating(false);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -50,14 +79,15 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
     }, [user, retry]);
 
     useEffect(() => {
-        if (!profileLoaded) return;
-        const params = supplierLocationParams(profile);
-        if (!params) { setLoading(false); return; }
+        if (locating || (!profileLoaded && !currentLocation)) return;
+        const params = supplierLocationParams(profile, currentLocation);
+        if (!params) { setLoading(false); setSuppliers([]); setLocationLabel(''); return; }
         const controller = new AbortController();
         setLoading(true);
         setError(null);
         setSuppliers([]);
         setLocationLabel('');
+        setWarnings([]);
         params.set('radius', String(radiusKm * 1000));
         params.set('query', searchQuery.trim());
         const search = async () => {
@@ -69,7 +99,8 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 }
                 if (controller.signal.aborted) return;
                 setSuppliers(nearbySuppliers(data.suppliers, data.location, radiusKm));
-                setLocationLabel(data.location.city || profile?.location || 'Saved location');
+                setLocationLabel([data.location.city || 'Saved location', data.country].filter(Boolean).join(' · '));
+                setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
             } catch (cause) {
                 if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Unable to find nearby suppliers.');
             } finally {
@@ -78,11 +109,11 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
         };
         void search();
         return () => controller.abort();
-    }, [profileLoaded, profile, radiusKm, searchQuery]);
+    }, [profileLoaded, profile, radiusKm, searchQuery, currentLocation, locating, retry]);
 
-    const hasLocation = !!supplierLocationParams(profile);
+    const hasLocation = !!supplierLocationParams(profile, currentLocation);
     const visibleSuppliers = filterType === 'all' ? suppliers : suppliers.filter(supplier => supplier.type === filterType);
-    const busy = !profileLoaded || loading;
+    const busy = locating || (!profileLoaded && !currentLocation) || loading;
     return (
         <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/30">
             <CardHeader className="pb-4">
@@ -94,15 +125,21 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                         </CardTitle>
                         <CardDescription className="mt-3 flex items-start gap-2 text-base">
                             <MapPin className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
-                            <span>{!profileLoaded ? 'Loading your saved location...' : locationLabel || profile?.location || (hasLocation ? 'Saved location' : 'Add your city in Profile')}</span>
+                            <span>{locating ? 'Finding your current location...' : currentLocation ? locationLabel || 'Current location' : !profileLoaded ? 'Loading your saved location...' : locationLabel || profile?.location || (hasLocation ? 'Saved location' : 'Choose your location')}</span>
                         </CardDescription>
-                        <p className="mt-2 text-sm text-slate-500">Within {radiusKm} km · Nearest first · Approximate straight-line distances</p>
-                        <Link href="/profile" className="mt-2 inline-flex min-h-10 items-center text-sm font-semibold text-emerald-700 underline underline-offset-2">Change location</Link>
+                        <p className="mt-2 text-sm text-slate-500">Within {radiusKm} km · Same country · Nearest first</p>
+                        <p className="mt-1 text-xs text-slate-500">Approximate straight-line distances{currentLocation ? ` · Device accuracy about ${Math.max(1, Math.round(currentLocation.accuracy))} m` : ' · From your saved city centre'}</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <Button type="button" onClick={useMyLocation} disabled={locating} className="min-h-11"><LocateFixed className="me-2 h-4 w-4" />{locating ? 'Locating...' : 'Use My Location'}</Button>
+                            {currentLocation && <Button type="button" variant="outline" className="min-h-11" onClick={() => { locationRequest.current += 1; setLocating(false); setCurrentLocation(null); setLocationLabel(''); setLocationError(null); }}>Use saved city</Button>}
+                            <Link href="/profile" className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 underline underline-offset-2">Change saved city</Link>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">Your browser will ask permission. Your profile location stays unchanged.</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <label className="text-sm font-medium text-slate-600">Distance
                             <select aria-label="Search distance" value={radiusKm} onChange={event => setRadiusKm(Number(event.target.value))} className="ms-2 min-h-11 rounded-lg border border-emerald-200 bg-white px-3 text-base">
-                                <option value={10}>10 km</option><option value={25}>25 km</option><option value={50}>50 km</option>
+                                <option value={10}>10 km</option><option value={15}>15 km</option><option value={20}>20 km</option><option value={25}>25 km</option><option value={50}>50 km</option>
                             </select>
                         </label>
                         {!busy && !error && <Badge variant="secondary" className="px-3 py-1 text-sm"><Users className="me-1 h-4 w-4" />{visibleSuppliers.length} found</Badge>}
@@ -110,11 +147,14 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 </div>
             </CardHeader>
             <CardContent className="space-y-6" aria-busy={busy}>
-                {busy ? <div className="flex justify-center p-8"><LoadingSpinner message="Finding suppliers near your saved location..." variant="sparkle" /></div>
+                {locationError && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{locationError}</p>}
+                {!busy && warnings.map(warning => <p key={warning} role="status" className="text-sm text-amber-800">{warning}</p>)}
+                {busy ? <div className="flex justify-center p-8"><LoadingSpinner message={locating ? 'Finding your current location...' : 'Finding nearby suppliers...'} variant="sparkle" /></div>
                 : error ? <div role="alert" className="rounded-xl bg-amber-50 p-5 text-amber-900"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRetry(value => value + 1)}>Try again</Button></div>
-                : !hasLocation ? <div className="py-8 text-center"><p className="mb-4 text-slate-600">Save your city to see suppliers near you.</p><Button asChild><Link href="/profile">Set my location</Link></Button></div>
+                : !hasLocation ? <div className="py-8 text-center"><p className="mb-4 text-slate-600">Use My Location above, or save your city to see suppliers near you.</p><Button asChild><Link href="/profile">Set my location</Link></Button></div>
                 : visibleSuppliers.length ? <div className="grid gap-4">{visibleSuppliers.map((supplier, index) => <SupplierCard key={supplier.id} supplier={supplier} index={index} />)}</div>
-                : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another product or type, or check your saved location.'}</p></div>}
+                : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km in your country.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another crop or product, or check your selected location.'}</p></div>}
+                {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>. Contact the supplier to confirm stock and services.</p>}
             </CardContent>
         </Card>
     );
@@ -169,6 +209,7 @@ export const SupplierCard = ({ supplier, index }: { supplier: Supplier, index: n
                             <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
                                 {supplier.name}
                             </h3>
+                            {supplier.source && <p className="mt-1 text-xs text-slate-500">{supplier.source === 'registered' ? 'Registered on AgriGuard' : 'Public map listing'}</p>}
                             <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm text-emerald-700 underline underline-offset-2">{supplier.location.address || supplier.location.city} · View on map</a>
                             <div className="flex flex-wrap items-center gap-4 mt-2">
                                 <div className="flex items-center gap-1">

@@ -3,13 +3,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import * as ort from 'onnxruntime-node';
-import {DETECTOR_CLASSES,DETECTOR_REVISION,detectorSupportsCrop,type DetectorResult,type LeafDetection} from '@/lib/crop-detector';
+import {CURRENT_DETECTOR_CLASSES as DETECTOR_CLASSES,CURRENT_DETECTOR_REVISION as DETECTOR_REVISION,CURRENT_DETECTOR_MODEL,detectorSupportsCrop,type DetectorResult,type LeafDetection} from '@/lib/crop-detector';
 
 let sessionPromise:Promise<ort.InferenceSession>|undefined;
 async function getSession(){
   if(!sessionPromise)sessionPromise=(async()=>{
     const bytes=await readFile(path.join(process.cwd(),'models/plant-disease/detector.onnx'));
-    if(createHash('sha256').update(bytes).digest('hex')!=='17c9e8ef5151e4018a015a5c78e04cfae7288a3b097a9b26f5c0f77fac85c191')throw new Error('Invalid detector weights');
+    if(createHash('sha256').update(bytes).digest('hex')!=='57a811f944a26c578defeb92d30900ef1fd73b89fa400ac68883c8af11389a99')throw new Error('Invalid detector weights');
     return ort.InferenceSession.create(bytes,{executionProviders:['cpu'],intraOpNumThreads:1,interOpNumThreads:1});
   })().catch(e=>{sessionPromise=undefined;throw e;});
   return sessionPromise;
@@ -20,7 +20,7 @@ function overlap(a:number[],b:number[]){
 }
 export async function detectCropLeaves(photoDataUri:string,crop?:string):Promise<DetectorResult>{
  const start=performance.now();
- const base={model:'YOLO11m PlantDoc',revision:DETECTOR_REVISION} as const;
+ const base={model:CURRENT_DETECTOR_MODEL,revision:DETECTOR_REVISION} as const;
  if(!detectorSupportsCrop(crop))return {...base,status:'unsupported',elapsedMs:0,detections:[]};
  let input:ort.Tensor|undefined;let output:ort.Tensor|undefined;
  try{
@@ -36,11 +36,11 @@ export async function detectCropLeaves(photoDataUri:string,crop?:string):Promise
   for(let i=0;i<640*640;i++)for(let c=0;c<3;c++)data[c*640*640+i]=pixels[i*3+c]/255;
   input=new ort.Tensor('float32',data,[1,3,640,640]);
   const result=await (await getSession()).run({images:input});output=result.output0;
-  if(output.dims.join(',')!=='1,33,8400')throw new Error('Unexpected detector shape');
+  if(output.dims.join(',')!=='1,120,8400')throw new Error('Unexpected detector shape');
   const a=output.data as Float32Array,n=8400,boxes:LeafDetection[]=[];
   const clamp=(v:number)=>Math.round(Math.max(0,Math.min(1000,v)));
   for(let i=0;i<n;i++){
-    let score=0,id=0;for(let c=0;c<29;c++){const p=a[(c+4)*n+i];if(p>score){score=p;id=c;}}
+    let score=0,id=0;for(let c=0;c<DETECTOR_CLASSES.length;c++){const p=a[(c+4)*n+i];if(p>score){score=p;id=c;}}
     if(!Number.isFinite(score)||score<.15||score>1)continue;
     const [x,y,bw,bh]=[a[i],a[n+i],a[2*n+i],a[3*n+i]];
     if(![x,y,bw,bh].every(Number.isFinite))continue;
@@ -52,7 +52,7 @@ export async function detectCropLeaves(photoDataUri:string,crop?:string):Promise
   for(const box of boxes){if(!kept.some(k=>overlap(k.box,box.box)>.45))kept.push(box);if(kept.length===16)break;}
   return {...base,status:'detected',elapsedMs:Math.round(performance.now()-start),detections:kept};
  }catch{
-  console.warn('Crop detector unavailable; report will explicitly use Gemini fallback.');
+  console.warn('Crop detector unavailable', {model:base.model, revision:base.revision});
   return {...base,status:'unavailable',elapsedMs:Math.round(performance.now()-start),detections:[]};
  }finally{input?.dispose();output?.dispose();}
 }

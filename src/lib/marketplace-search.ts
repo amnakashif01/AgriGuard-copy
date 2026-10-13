@@ -1,0 +1,103 @@
+import { iso1A2Code } from '@rapideditor/country-coder';
+import { collection, getDocsFromServer } from 'firebase/firestore';
+import { getDb } from './firestore';
+import type { Supplier } from './models';
+import { nearbySuppliers, validCoordinates, matchesSupplierQuery, type Coordinates } from './supplier-location';
+
+export type MarketplaceSupplier = Supplier & { source: 'registered' | 'openstreetmap' };
+export const countryAt = (point: Coordinates) => validCoordinates(point) ? iso1A2Code([point.lng, point.lat]) : undefined;
+
+/** A coarse regional tile, never the device's precise coordinates, goes to OSM. */
+export function supplierSearchBounds(point: Coordinates): string[] {
+  const south = Math.max(-90, Math.floor(point.lat) - 1);
+  const north = Math.min(90, Math.floor(point.lat) + 2);
+  const latitude = Math.min(89, Math.max(Math.abs(south), Math.abs(north)));
+  const pad = Math.min(180, Math.ceil(50 / (111 * Math.cos(latitude * Math.PI / 180))));
+  const west = Math.floor(point.lng) - pad;
+  const east = Math.floor(point.lng) + 1 + pad;
+  if (east - west >= 360) return [`${south},-180,${north},180`];
+  if (west < -180) return [`${south},${west + 360},${north},180`, `${south},-180,${north},${east}`];
+  if (east > 180) return [`${south},${west},${north},180`, `${south},-180,${north},${east - 360}`];
+  return [`${south},${west},${north},${east}`];
+}
+
+export function filterMarketplaceSuppliers(suppliers: Supplier[], origin: Coordinates, radiusKm: number, query = ''): Supplier[] {
+  const country = countryAt(origin);
+  if (!country) return [];
+  return nearbySuppliers(suppliers, origin, radiusKm).filter(supplier =>
+    countryAt(supplier.location.coordinates) === country && matchesSupplierQuery(supplier, query));
+}
+
+type OSMElement = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+
+export function osmSupplier(element: OSMElement): MarketplaceSupplier | null {
+  const tags = element.tags || {};
+  const coordinates = { lat: element.lat ?? element.center?.lat, lng: element.lon ?? element.center?.lon };
+  if (!tags.name || !validCoordinates(coordinates)) return null;
+  const declared = [tags.product, tags.produce, tags.crop, tags['agricultural:products'], tags['shop:agrarian']].filter(Boolean).flatMap(value => value.split(';'));
+  // Farm shops can sell dairy, poultry or honey; do not advertise them as seed dealers.
+  const cropTerms = /seed|fertili[sz]er|pesticide|fungicide|agro|agri|grain|wheat|rice|maize|corn|tomato|mango|fruit|vegetable|crop|irrigation|tractor/i;
+  if (/poultry|dairy|honey|beekeep/i.test(tags.name) && !cropTerms.test([...declared, tags.name].join(' '))) return null;
+  if (tags.shop === 'farm' && !cropTerms.test([tags.name, ...declared].join(' '))) return null;
+  const products = [...declared];
+  for (const [pattern, label] of [[/seed/i, 'Seeds'], [/fertili[sz]er/i, 'Fertilizers'], [/pesticide/i, 'Pesticides'], [/fungicide/i, 'Fungicides'], [/equipment|machinery|tractor/i, 'Farm Equipment'], [/irrigation/i, 'Irrigation']] as const) {
+    if (pattern.test(tags.name) && !products.includes(label)) products.push(label);
+  }
+  if (!products.length) products.push(tags.shop === 'garden_centre' ? 'Garden Supplies' : 'Agricultural Supplies');
+  return {
+    id: `osm-${element.type}-${element.id}`, source: 'openstreetmap', name: tags.name, type: 'supplier',
+    location: { coordinates, address: tags['addr:full'] || [tags['addr:street'], tags['addr:city']].filter(Boolean).join(', '), city: tags['addr:city'] || '', province: tags['addr:state'] || '' },
+    products, services: [], contact: { phone: tags.phone || tags['contact:phone'] || '', ...(tags['contact:whatsapp'] && { whatsapp: tags['contact:whatsapp'] }) },
+    rating: 0, availability: 'available', pricing: { competitive: false }, verification: { verified: false },
+  };
+}
+
+export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promise<MarketplaceSupplier[]> {
+  const country = countryAt(origin);
+  if (!country) throw new Error('We could not identify your country. Please use your saved city or try locating again.');
+  const queries = supplierSearchBounds(origin).map(bounds => `nwr["shop"~"^(agrarian|farm|garden_centre)$"](area.country)(${bounds});`).join('');
+  const query = `[out:json][timeout:12];area["ISO3166-1"="${country}"]["admin_level"="2"]->.country;(${queries});out center tags;`;
+  const response = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST', body: new URLSearchParams({ data: query }).toString(),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'AgriGuard/1.0 (agricultural supplier directory)' },
+    signal: AbortSignal.timeout(15000), next: { revalidate: 900 },
+  });
+  if (!response.ok) throw new Error('Public supplier search is temporarily unavailable. Please try again.');
+  const data = await response.json();
+  if (!Array.isArray(data.elements) || data.remark) throw new Error('Public supplier search could not finish. Please try again.');
+  return data.elements.map(osmSupplier).filter((supplier: MarketplaceSupplier | null): supplier is MarketplaceSupplier => supplier !== null);
+}
+
+async function loadRegisteredSuppliers(): Promise<Supplier[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const snapshot = await Promise.race([
+      getDocsFromServer(collection(getDb(), 'suppliers')),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Registered supplier lookup timed out')), 5000); }),
+    ]);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Supplier));
+  } finally { clearTimeout(timer); }
+}
+
+export async function searchMarketplace(origin: Coordinates, radiusKm: number, query: string, registered = loadRegisteredSuppliers) {
+  const countryCode = countryAt(origin);
+  if (!countryCode) throw new Error('We could not identify your country. Please use your saved city or try locating again.');
+  const [saved, directory] = await Promise.allSettled([registered(), fetchFreeMarketplaceSuppliers(origin)]);
+  if (saved.status === 'rejected' && directory.status === 'rejected') throw new Error('Supplier search is temporarily unavailable. Please try again.');
+  const candidates: MarketplaceSupplier[] = [
+    ...(saved.status === 'fulfilled' ? saved.value.map(supplier => ({ ...supplier, source: 'registered' as const })) : []),
+    ...(directory.status === 'fulfilled' ? directory.value : []),
+  ];
+  const suppliers = filterMarketplaceSuppliers(candidates, origin, radiusKm, query) as MarketplaceSupplier[];
+  const seen = new Set<string>();
+  const deduplicated = suppliers.filter(supplier => {
+    const key = `${supplier.name.trim().toLowerCase()}|${supplier.location.coordinates.lat.toFixed(3)}|${supplier.location.coordinates.lng.toFixed(3)}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  const warnings = [
+    ...(saved.status === 'rejected' ? ['Registered listings could not be loaded; showing available public listings.'] : []),
+    ...(directory.status === 'rejected' ? ['Public listings could not be loaded; showing available registered listings.'] : []),
+  ];
+  return { suppliers: deduplicated, countryCode, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode), warnings };
+}

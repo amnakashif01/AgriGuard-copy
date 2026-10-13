@@ -27,10 +27,33 @@ export function nearbySuppliers(suppliers: Supplier[], origin: Coordinates, radi
 }
 
 /** A changed city takes precedence over coordinates saved for an earlier city. */
-export function supplierLocationParams(profile: { location?: string; lat?: number; lon?: number } | null): URLSearchParams | null {
+export function supplierLocationParams(profile: { location?: string; lat?: number; lon?: number } | null, currentLocation?: Coordinates | null): URLSearchParams | null {
+  if (validCoordinates(currentLocation)) return new URLSearchParams({ lat: String(currentLocation.lat), lng: String(currentLocation.lng), mode: 'current' });
   if (profile?.location?.trim()) return new URLSearchParams({ location: profile.location.trim() });
   const point = { lat: profile?.lat, lng: profile?.lon };
   return validCoordinates(point) ? new URLSearchParams({ lat: String(point.lat), lng: String(point.lng) }) : null;
+}
+
+export function getCurrentSupplierLocation(geolocation: Pick<Geolocation, 'getCurrentPosition'> | undefined): Promise<Coordinates & { accuracy: number }> {
+  return new Promise((resolve, reject) => {
+    if (!geolocation) return reject(new Error('Location is not supported by this browser. Use your saved city instead.'));
+    geolocation.getCurrentPosition(position => {
+      const point = { lat: position.coords.latitude, lng: position.coords.longitude };
+      if (!validCoordinates(point)) return reject(new Error('Your device returned an invalid location. Please try again.'));
+      resolve({ ...point, accuracy: position.coords.accuracy });
+    }, error => reject(new Error(error.code === 1
+      ? 'Location permission was denied. Allow location for this site in your browser settings, then try again, or use your saved city.'
+      : error.code === 3 ? 'Finding your location took too long. Please try again or use your saved city.'
+      : 'Your current location is unavailable. Check your device location settings or use your saved city.')),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  });
+}
+
+/** Match only actual listing details; never add the search term to the products. */
+export function matchesSupplierQuery(supplier: Supplier, query = ''): boolean {
+  const normalize = (value: string) => value.toLowerCase().replace(/fertiliser/g, 'fertilizer').replace(/corn/g, 'maize');
+  const text = normalize([supplier.name, ...(supplier.products || []), ...(supplier.services || [])].join(' '));
+  return normalize(query).trim().split(/\s+/).filter(Boolean).every(term => text.includes(term.replace(/s$/, '')));
 }
 
 export async function resolveSupplierCity(location: string): Promise<Coordinates & { city: string }> {

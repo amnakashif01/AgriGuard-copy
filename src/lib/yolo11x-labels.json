@@ -1,0 +1,582 @@
+[
+  [
+    "corn rust",
+    "Maize",
+    "Common Rust"
+  ],
+  [
+    "cherry leaf",
+    "Cherry",
+    "Healthy"
+  ],
+  [
+    "soybean leaf",
+    "Soybean",
+    "Healthy"
+  ],
+  [
+    "strawberry leaf",
+    "Strawberry",
+    "Healthy"
+  ],
+  [
+    "corn northern leaf blight",
+    "Maize",
+    "Northern Leaf Blight"
+  ],
+  [
+    "coffee leaf",
+    "Coffee",
+    "Healthy"
+  ],
+  [
+    "cauliflower alternaria leaf spot",
+    "Cauliflower",
+    "Alternaria Leaf Spot"
+  ],
+  [
+    "celery leaf",
+    "Celery",
+    "Healthy"
+  ],
+  [
+    "strawberry anthracnose",
+    "Strawberry",
+    "Anthracnose"
+  ],
+  [
+    "basil leaf",
+    "Basil",
+    "Healthy"
+  ],
+  [
+    "citrus greening disease",
+    "Citrus",
+    "Citrus Greening Disease"
+  ],
+  [
+    "grape downy mildew",
+    "Grape",
+    "Downy Mildew"
+  ],
+  [
+    "blueberry rust",
+    "Blueberry",
+    "Rust"
+  ],
+  [
+    "celery anthracnose",
+    "Celery",
+    "Anthracnose"
+  ],
+  [
+    "ginger leaf",
+    "Ginger",
+    "Healthy"
+  ],
+  [
+    "cucumber angular leaf spot",
+    "Cucumber",
+    "Angular Leaf Spot"
+  ],
+  [
+    "broccoli downy mildew",
+    "Broccoli",
+    "Downy Mildew"
+  ],
+  [
+    "blueberry leaf",
+    "Blueberry",
+    "Healthy"
+  ],
+  [
+    "cucumber bacterial wilt",
+    "Cucumber",
+    "Bacterial Wilt"
+  ],
+  [
+    "grape leaf",
+    "Grape",
+    "Healthy"
+  ],
+  [
+    "garlic leaf",
+    "Garlic",
+    "Healthy"
+  ],
+  [
+    "plum leaf",
+    "Plum",
+    "Healthy"
+  ],
+  [
+    "ginger sheath blight",
+    "Ginger",
+    "Sheath Blight"
+  ],
+  [
+    "rice leaf",
+    "Rice",
+    "Healthy"
+  ],
+  [
+    "cabbage leaf",
+    "Cabbage",
+    "Healthy"
+  ],
+  [
+    "corn gray leaf spot",
+    "Maize",
+    "Gray Leaf Spot"
+  ],
+  [
+    "eggplant leaf",
+    "Eggplant",
+    "Healthy"
+  ],
+  [
+    "basil downy mildew",
+    "Basil",
+    "Downy Mildew"
+  ],
+  [
+    "tomato bacterial leaf spot",
+    "Tomato",
+    "Bacterial Spot"
+  ],
+  [
+    "cherry leaf spot",
+    "Cherry",
+    "Leaf Spot"
+  ],
+  [
+    "cucumber leaf",
+    "Cucumber",
+    "Healthy"
+  ],
+  [
+    "apple black rot",
+    "Apple",
+    "Black Rot"
+  ],
+  [
+    "eggplant cercospora leaf spot",
+    "Eggplant",
+    "Cercospora Leaf Spot"
+  ],
+  [
+    "maple leaf",
+    "Maple",
+    "Healthy"
+  ],
+  [
+    "cucumber powdery mildew",
+    "Cucumber",
+    "Powdery Mildew"
+  ],
+  [
+    "bean rust",
+    "Bean",
+    "Rust"
+  ],
+  [
+    "rice sheath blight",
+    "Rice",
+    "Sheath Blight"
+  ],
+  [
+    "zucchini yellow mosaic virus",
+    "Zucchini",
+    "Yellow Mosaic Virus"
+  ],
+  [
+    "bean leaf",
+    "Bean",
+    "Healthy"
+  ],
+  [
+    "citrus canker",
+    "Citrus",
+    "Canker"
+  ],
+  [
+    "peach leaf curl",
+    "Peach",
+    "Leaf Curl"
+  ],
+  [
+    "maple tar spot",
+    "Maple",
+    "Tar Spot"
+  ],
+  [
+    "tomato leaf mold",
+    "Tomato",
+    "Leaf Mold"
+  ],
+  [
+    "plum pocket disease",
+    "Plum",
+    "Pocket Disease"
+  ],
+  [
+    "tomato early blight",
+    "Tomato",
+    "Early Blight"
+  ],
+  [
+    "cherry powdery mildew",
+    "Cherry",
+    "Powdery Mildew"
+  ],
+  [
+    "grape leaf spot",
+    "Grape",
+    "Leaf Spot"
+  ],
+  [
+    "bell pepper leaf spot",
+    "Bell Pepper",
+    "Leaf Spot"
+  ],
+  [
+    "apple rust",
+    "Apple",
+    "Cedar Apple Rust"
+  ],
+  [
+    "cabbage alternaria leaf spot",
+    "Cabbage",
+    "Alternaria Leaf Spot"
+  ],
+  [
+    "tobacco mosaic virus",
+    "Tobacco",
+    "Mosaic Virus"
+  ],
+  [
+    "apple mosaic virus",
+    "Apple",
+    "Mosaic Virus"
+  ],
+  [
+    "potato late blight",
+    "Potato",
+    "Late Blight"
+  ],
+  [
+    "tomato septoria leaf spot",
+    "Tomato",
+    "Septoria Leaf Spot"
+  ],
+  [
+    "potato leaf",
+    "Potato",
+    "Healthy"
+  ],
+  [
+    "lettuce mosaic virus",
+    "Lettuce",
+    "Mosaic Virus"
+  ],
+  [
+    "garlic leaf blight",
+    "Garlic",
+    "Leaf Blight"
+  ],
+  [
+    "grapevine leafroll disease",
+    "Grape",
+    "Grapevine Leafroll Disease"
+  ],
+  [
+    "carrot cavity spot",
+    "Carrot",
+    "Cavity Spot"
+  ],
+  [
+    "cauliflower leaf",
+    "Cauliflower",
+    "Healthy"
+  ],
+  [
+    "rice blast",
+    "Rice",
+    "Blast"
+  ],
+  [
+    "tomato late blight",
+    "Tomato",
+    "Late Blight"
+  ],
+  [
+    "banana panama disease",
+    "Banana",
+    "Panama Disease"
+  ],
+  [
+    "ginger leaf spot",
+    "Ginger",
+    "Leaf Spot"
+  ],
+  [
+    "garlic rust",
+    "Garlic",
+    "Rust"
+  ],
+  [
+    "banana leaf",
+    "Banana",
+    "Healthy"
+  ],
+  [
+    "lettuce downy mildew",
+    "Lettuce",
+    "Downy Mildew"
+  ],
+  [
+    "grape black rot",
+    "Grape",
+    "Black Rot"
+  ],
+  [
+    "raspberry leaf",
+    "Raspberry",
+    "Healthy"
+  ],
+  [
+    "tomato mosaic virus",
+    "Tomato",
+    "Mosaic Virus"
+  ],
+  [
+    "tomato leaf",
+    "Tomato",
+    "Healthy"
+  ],
+  [
+    "squash powdery mildew",
+    "Squash",
+    "Powdery Mildew"
+  ],
+  [
+    "squash leaf",
+    "Squash",
+    "Healthy"
+  ],
+  [
+    "corn leaf",
+    "Maize",
+    "Healthy"
+  ],
+  [
+    "lettuce leaf",
+    "Lettuce",
+    "Healthy"
+  ],
+  [
+    "tobacco leaf",
+    "Tobacco",
+    "Healthy"
+  ],
+  [
+    "bean halo blight",
+    "Bean",
+    "Halo Blight"
+  ],
+  [
+    "apple leaf",
+    "Apple",
+    "Healthy"
+  ],
+  [
+    "bell pepper leaf",
+    "Bell Pepper",
+    "Healthy"
+  ],
+  [
+    "broccoli leaf",
+    "Broccoli",
+    "Healthy"
+  ],
+  [
+    "apple scab",
+    "Apple",
+    "Scab"
+  ],
+  [
+    "strawberry leaf scorch",
+    "Strawberry",
+    "Leaf Scorch"
+  ],
+  [
+    "corn smut",
+    "Maize",
+    "Smut"
+  ],
+  [
+    "coffee leaf rust",
+    "Coffee",
+    "Leaf Rust"
+  ],
+  [
+    "peach leaf",
+    "Peach",
+    "Healthy"
+  ],
+  [
+    "bean mosaic virus",
+    "Bean",
+    "Mosaic Virus"
+  ],
+  [
+    "celery early blight",
+    "Celery",
+    "Early Blight"
+  ],
+  [
+    "potato early blight",
+    "Potato",
+    "Early Blight"
+  ],
+  [
+    "tomato yellow leaf curl virus",
+    "Tomato",
+    "Yellow Leaf Curl Virus"
+  ],
+  [
+    "Cassava Bacterial Blight",
+    "Cassava",
+    "Bacterial Blight"
+  ],
+  [
+    "Cassava Brown Leaf Spot",
+    "Cassava",
+    "Brown Leaf Spot"
+  ],
+  [
+    "Cassava Healthy",
+    "Cassava",
+    "Healthy"
+  ],
+  [
+    "Cassava Mosaic",
+    "Cassava",
+    "Mosaic"
+  ],
+  [
+    "Cassava Root Rot",
+    "Cassava",
+    "Root Rot"
+  ],
+  [
+    "Corn Brown Spots",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Charcoal",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Chlorotic Leaf Spot",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Gray leaf spot",
+    "Maize",
+    "Gray Leaf Spot"
+  ],
+  [
+    "Corn Healthy",
+    "Maize",
+    "Healthy"
+  ],
+  [
+    "Corn Insects Damages",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Mildew",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Purple Discoloration",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Smut",
+    "Maize",
+    "Smut"
+  ],
+  [
+    "Corn Streak",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Stripe",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Violet Decoloration",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Yellow Spots",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn Yellowing",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn leaf blight",
+    "Maize",
+    ""
+  ],
+  [
+    "Corn rust leaf",
+    "Maize",
+    "Common Rust"
+  ],
+  [
+    "Tomato Brown Spots",
+    "Tomato",
+    ""
+  ],
+  [
+    "Tomato bacterial wilt",
+    "Tomato",
+    "Bacterial Wilt"
+  ],
+  [
+    "Tomato blight leaf",
+    "Tomato",
+    ""
+  ],
+  [
+    "Tomato healthy",
+    "Tomato",
+    "Healthy"
+  ],
+  [
+    "Tomato leaf mosaic virus",
+    "Tomato",
+    "Mosaic Virus"
+  ],
+  [
+    "Tomato leaf yellow virus",
+    "Tomato",
+    "Yellow Leaf Curl Virus"
+  ]
+]

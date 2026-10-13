@@ -1,20 +1,32 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-const revision = '8dce599ce0122b304b1fff3cb0d58c90e1f44805';
-const checksum = '17c9e8ef5151e4018a015a5c78e04cfae7288a3b097a9b26f5c0f77fac85c191';
-const directory = path.join(process.cwd(), 'models/plant-disease');
-const destination = path.join(directory, 'detector.onnx');
-const valid = bytes => bytes.length === 80515434 && createHash('sha256').update(bytes).digest('hex') === checksum;
-let existing;
-try { existing = await readFile(destination); } catch {}
-if (!existing || !valid(existing)) {
-  const response = await fetch(`https://raw.githubusercontent.com/dovh25/plantdoc-live-demo/${revision}/training/plantdoc_yolo/weights/best.onnx`, { signal: AbortSignal.timeout(90000) });
-  if (!response.ok) throw new Error(`Plant model download failed (${response.status})`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (!valid(bytes)) throw new Error('Plant model integrity check failed');
-  await mkdir(directory, { recursive: true });
-  await writeFile(destination, bytes);
+const manifest = JSON.parse(await readFile('models/plant-disease/manifest.json', 'utf8'));
+const destination = path.resolve('models/plant-disease/detector.onnx');
+const cache = path.resolve('.next/cache/agriguard-models', `${manifest.onnxSha256}.onnx`);
+async function valid(file) {
+  try {
+    if ((await stat(file)).size !== manifest.onnxBytes) return false;
+    const hash = createHash('sha256');
+    for await (const chunk of createReadStream(file)) hash.update(chunk);
+    return hash.digest('hex') === manifest.onnxSha256;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
 }
-console.log('Verified YOLO11m PlantDoc detector: 80.52 MB, CPU inference, 29 leaf categories.');
+await mkdir(path.dirname(destination), {recursive:true});
+if (!await valid(destination)) {
+  if (await valid(cache)) {
+    await copyFile(cache, destination);
+  } else {
+    console.log('Building verified YOLO11x from the pinned public crop checkpoint...');
+    await import('./build-yolo11-model.mjs');
+  }
+}
+if (!await valid(destination)) throw new Error('YOLO11 weights are missing or invalid. Refusing to deploy without the detector.');
+await mkdir(path.dirname(cache), {recursive:true});
+if (!await valid(cache)) await copyFile(destination, cache);
+console.log(`Verified ${manifest.model}: ${manifest.onnxBytes} bytes, ${manifest.classes} categories, CPU inference.`);
