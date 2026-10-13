@@ -359,6 +359,8 @@ async function deleteOwnerCrop(
     });
     await batch.commit();
   }
+  const { deleteCropCareAdmin } = await import('./crop-care-cleanup');
+  await deleteCropCareAdmin(db, action.uid, action.cropId);
   for (const collection of await cropRef.listCollections())
     await deleteTree(db, collection);
   await cropRef.delete();

@@ -578,10 +578,13 @@ export async function workspaceMutation(s: Services, action: OwnerAction) {
       (d) => d.data().cropId === action.cropId,
     )) {
       const b = db.batch();
+      if (report.data().careSeasonId) b.set(db.doc(`${root}/careDeletionJobs/${report.id}`), {seasonId: report.data().careSeasonId});
       b.delete(report.ref);
       b.delete(db.doc(`${root}/notifications/diagnosis_${report.id}`));
       b.delete(db.doc(`community_profiles/${action.uid}/cases/${report.id}`));
       await b.commit();
+      const { cleanDeletedReportCareAdmin } = await import("./crop-care-cleanup");
+      await cleanDeletedReportCareAdmin(db, action.uid, report.id);
     }
     // Keep the parent lock until children are removed; a retry cannot decrement twice.
     for (const children of await ref.listCollections())
@@ -606,6 +609,8 @@ export async function workspaceMutation(s: Services, action: OwnerAction) {
     const ref = db.doc(`${root}/reports/${action.reportId}`);
     await db.runTransaction(async (tx) => {
       const report = await tx.get(ref);
+      // Resume a previously committed report deletion if care cleanup was interrupted.
+      if (!report.exists && action.action === "report.delete") return;
       requireVersion(report, action.version);
       const d = report.data()!;
       const linked = validId(d.cropId) && validId(d.plantId);
@@ -686,6 +691,7 @@ export async function workspaceMutation(s: Services, action: OwnerAction) {
           throw new OwnerError(
             "Enter the report diagnosis to confirm deletion.",
           );
+        if (d.careSeasonId) tx.set(db.doc(`${root}/careDeletionJobs/${action.reportId}`), {seasonId: d.careSeasonId});
         tx.delete(ref);
         if (recordRef) tx.delete(recordRef);
         tx.delete(db.doc(`${root}/notifications/diagnosis_${action.reportId}`));
@@ -708,6 +714,7 @@ export async function workspaceMutation(s: Services, action: OwnerAction) {
       }
       if (crop?.exists && cropRef) tx.update(cropRef, { updatedAt: now });
     });
+    if (action.action === "report.delete") { const { cleanDeletedReportCareAdmin } = await import("./crop-care-cleanup"); await cleanDeletedReportCareAdmin(db, action.uid, action.reportId); }
     return;
   }
   throw new OwnerError("Unsupported workspace action.");
