@@ -1,364 +1,181 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { GoogleAuthProvider, createUserWithEmailAndPassword, getAdditionalUserInfo, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, type UserCredential } from 'firebase/auth';
+import { ArrowRight, Eye, EyeOff, Leaf, Loader2, MapPin, ShieldCheck, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Leaf, Phone, KeyRound, UserPlus, LogIn, Shield } from 'lucide-react';
-import LoadingSpinner from '@/components/agrisahayak/loading-spinner';
-import { useAuth, useFirebase } from '@/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
+import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { upsertProfile } from '@/lib/repositories';
-import { normalizePakistanPhone } from '@/lib/phone-number';
 
-// Extend window to safely store Firebase instances
-declare global {
-  interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
-    confirmationResult?: ConfirmationResult;
+type Mode = 'login' | 'signup' | 'reset';
+
+function authMessage(error: unknown): string {
+  const code = (error as { code?: string })?.code;
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found': return 'Email or password is incorrect. Please try again.';
+    case 'auth/email-already-in-use': return 'An account already uses this email. Sign in or reset your password.';
+    case 'auth/invalid-email': return 'Please enter a valid email address.';
+    case 'auth/weak-password':
+    case 'auth/password-does-not-meet-requirements': return 'Choose a stronger password with uppercase and lowercase letters, a number and a symbol.';
+    case 'auth/too-many-requests': return 'Too many attempts. Please wait a little before trying again.';
+    case 'auth/network-request-failed': return 'Connection interrupted. Check your internet and try again.';
+    case 'auth/popup-blocked': return 'Allow pop-ups for this site, then try Google sign-in again.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request': return 'Google sign-in was cancelled. You can try again or use email.';
+    case 'auth/account-exists-with-different-credential': return 'Use your existing sign-in method for this email.';
+    case 'auth/operation-not-allowed': return 'This sign-in method is not enabled yet. Please contact the site administrator.';
+    case 'auth/unauthorized-domain': return 'Google sign-in is not configured for this website yet. Please use email or contact the site administrator.';
+    case 'auth/user-disabled': return 'This account is disabled. Please contact the site administrator.';
+    default: return 'Unable to sign in right now. Please try again.';
   }
 }
 
-// ─── Demo accounts for FYP presentation (bypass real SMS) ────────────────────
-const DEMO_ACCOUNTS = [
-  { label: 'Demo Account 1 (Admin)', phone: '03001234567', otp: '123456' },
-  { label: 'Demo Account 2 (Admin)', phone: '03244149474', otp: '123456' },
-];
-
 export default function LoginPage() {
-  const [isClient, setIsClient] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [showOtpForm, setShowOtpForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const { user, isUserLoading, auth } = useAuth();
   const router = useRouter();
-  const { auth } = useFirebase();
-  const { user, isUserLoading } = useAuth();
   const { toast } = useToast();
+  const [mode, setMode] = useState<Mode>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState<'email' | 'google' | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const authenticating = useRef(false);
 
-  // Redirect if user is already logged in
   useEffect(() => {
-    setIsClient(true);
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
+    if (!isUserLoading && user && !authenticating.current) router.replace('/dashboard');
+  }, [user, isUserLoading, router]);
 
-  // Set up the INVISIBLE reCAPTCHA
-  const setupRecaptcha = useCallback(() => {
-    if (!auth || window.recaptchaVerifier) return;
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError('');
+    setNotice('');
+    setPassword('');
+    setConfirmation('');
+    setVisible(false);
+  }
 
-    try {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'callback': (_response: any) => {
-              // reCAPTCHA solved
-            },
-            'expired-callback': () => {
-              setError("reCAPTCHA response expired. Please try again.");
-              if (window.recaptchaVerifier) {
-                  window.recaptchaVerifier.clear();
-                  window.recaptchaVerifier = undefined;
-              }
-            }
-        });
-    } catch (e) {
-        console.error("RecaptchaVerifier error", e);
-    }
-  }, [auth]);
-
-  // Effect to initialize reCAPTCHA
-  useEffect(() => {
-    if (isClient && !isUserLoading && !showOtpForm) {
-      setupRecaptcha();
-    }
-
-    return () => {
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {}
-        window.recaptchaVerifier = undefined;
+  async function completeSignIn(result: UserCredential) {
+    // Existing profiles (including location and crops) must never be overwritten on login.
+    if (getAdditionalUserInfo(result)?.isNewUser) {
+      try {
+        await upsertProfile({ uid: result.user.uid, phone: '', ...(result.user.displayName ? { name: result.user.displayName } : {}), createdAt: new Date().toISOString() });
+      } catch {
+        toast({ title: 'Signed in', description: 'Your profile could not be saved yet. You can complete it from Profile.' });
       }
-    };
-  }, [isClient, isUserLoading, showOtpForm, setupRecaptcha]);
+    }
+    router.replace('/dashboard');
+  }
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^\d+]/g, '').slice(0, 15);
-    const normalized = normalizePakistanPhone(value);
-    setPhone(normalized ? `0${normalized.slice(3)}` : value);
-  };
-
-  // Auto-fill phone from demo account click
-  const handleDemoLogin = (demo: typeof DEMO_ACCOUNTS[0]) => {
-    setPhone(demo.phone);
-    setError(null);
-    toast({
-      title: `✅ Demo Account Filled`,
-      description: `Phone: ${demo.phone} — Click "Send OTP", then enter OTP: ${demo.otp}`,
-      duration: 8000,
-    });
-  };
-
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    const fullPhone = normalizePakistanPhone(phone);
-    if (!fullPhone) {
-      setError("Please enter a valid Pakistani phone number (e.g. 03217094123).");
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authenticating.current) return;
+    setError('');
+    setNotice('');
+    if (mode === 'signup' && password !== confirmation) {
+      setError('Your passwords do not match. Please check them.');
       return;
     }
-
-    setIsSending(true);
-
-    if (!auth) {
-      setError("Authentication service is not ready.");
-      setIsSending(false);
-      return;
-    }
-
-
-    // Try real Firebase Phone Auth first
-    if (!window.recaptchaVerifier) {
-      setupRecaptcha();
-    }
-
+    authenticating.current = true;
+    setBusy('email');
     try {
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier!);
-      window.confirmationResult = confirmationResult;
-      setShowOtpForm(true);
-      const demo = DEMO_ACCOUNTS.find(account => normalizePakistanPhone(account.phone) === fullPhone);
-      toast({ title: demo ? "Demo login ready" : "OTP Sent", description: demo ? "Use the demo code shown below. No SMS is sent for demo accounts." : `An OTP has been sent to ${fullPhone}` });
-    } catch (err: any) {
-      console.warn('Phone sign-in failed:', err.code);
-      if (err.code === 'auth/billing-not-enabled') {
-        setError('Real SMS sign-in requires Firebase billing. For the demo, select Demo Account 1 or 2 below and use the displayed demo code.');
-      } else if (err.code === 'auth/too-many-requests' || err.code === 'auth/quota-exceeded') {
-        setError('Too many sign-in attempts. Please wait before trying again.');
+      if (mode === 'reset') {
+        await sendPasswordResetEmail(auth, email.trim());
+        setNotice('If an account exists for this email, you will receive a password reset link. Check your inbox and spam folder.');
       } else {
-        setError(err.message || 'Could not send the code. Please check the phone number and try again.');
+        const result = mode === 'signup'
+          ? await createUserWithEmailAndPassword(auth, email.trim(), password)
+          : await signInWithEmailAndPassword(auth, email.trim(), password);
+        await completeSignIn(result);
       }
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = undefined;
-      }
+    } catch (failure) {
+      if (mode === 'reset' && (failure as { code?: string })?.code === 'auth/user-not-found') {
+        setNotice('If an account exists for this email, you will receive a password reset link. Check your inbox and spam folder.');
+      } else setError(authMessage(failure));
     } finally {
-      setIsSending(false);
+      authenticating.current = false;
+      setBusy(null);
     }
-  };
+  }
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsVerifying(true);
-
+  async function googleSignIn() {
+    if (authenticating.current) return;
+    authenticating.current = true;
+    setBusy('google');
+    setError('');
+    setNotice('');
     try {
-        // ── Real Firebase Phone Auth verification ───────────────────────────
-        if (!window.confirmationResult) {
-          setError("Verification session expired. Please request a new OTP.");
-          setIsVerifying(false);
-          return;
-        }
-        const cred = await window.confirmationResult.confirm(code);
-        const loggedInUser = cred.user;
-        await upsertProfile({ uid: loggedInUser.uid, phone: loggedInUser.phoneNumber! });
-        toast({ title: "Login Successful!", description: "Welcome to AgriGuard.", className: "bg-green-100 text-green-800" });
-        router.push('/dashboard');
-    } catch (err: any) {
-      console.error("OTP Verify Error:", err);
-      setError(err.message || 'Invalid code. Please try again.');
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await completeSignIn(await signInWithPopup(auth, provider));
+    } catch (failure) {
+      setError(authMessage(failure));
     } finally {
-      setIsVerifying(false);
+      authenticating.current = false;
+      setBusy(null);
     }
-  };
-
-  if (!isClient || isUserLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center">
-        <LoadingSpinner message="Loading..." />
-      </div>
-    );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4">
-      <div className="w-full max-w-md space-y-4">
-
-        {/* Main Login Card */}
-        <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
-          <CardHeader className="text-center pb-4">
-            <div className="mx-auto bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 w-fit mb-4 shadow-lg">
-              <Leaf className="h-10 w-10 text-white" />
-            </div>
-            <CardTitle className="text-3xl font-headline bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent">
-              Welcome to AgriGuard
-            </CardTitle>
-            <CardDescription className="text-gray-500">
-              {showOtpForm
-                ? 'Enter your verification code'
-                : 'Sign in or sign up with your phone number'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!showOtpForm ? (
-              <form onSubmit={handleSendOtp} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold">
-                    <Phone className="h-4 w-4 text-emerald-600" />
-                    Phone Number
-                  </Label>
-                  <div className="flex">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-emerald-50 text-emerald-700 text-sm font-bold">
-                      +92
-                    </span>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="0321 7094123"
-                      required
-                      className="rounded-l-none focus:ring-emerald-500 focus:border-emerald-500"
-                      value={phone}
-                      onChange={handlePhoneChange}
-                      pattern="\d{10,11}"
-                      title="Please enter your Pakistani phone number (10-11 digits, e.g. 03217094123)."
-                    />
-                  </div>
-                  <p className="text-xs text-gray-400">Enter any valid Pakistani phone number to register or sign in</p>
-                </div>
-
-                {/* Invisible reCAPTCHA Container */}
-                <div id="recaptcha-container"></div>
-
-                {error && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all"
-                  disabled={isSending || !normalizePakistanPhone(phone)}
-                >
-                  {isSending ? (
-                    <LoadingSpinner message="Sending OTP..." />
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <LogIn className="h-4 w-4" />
-                      Send OTP
-                    </span>
-                  )}
-                </Button>
-
-                <div className="text-center text-xs text-gray-400 flex items-center gap-2 justify-center">
-                  <UserPlus className="h-3 w-3" />
-                  New users are automatically registered
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="code" className="flex items-center gap-2 text-sm font-semibold">
-                    <KeyRound className="h-4 w-4 text-emerald-600" />
-                    Enter OTP
-                  </Label>
-                  <Input
-                    id="code"
-                    inputMode="numeric"
-                    placeholder="6-digit code"
-                    maxLength={6}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    required
-                    autoFocus
-                    className="text-center text-2xl tracking-widest font-bold focus:ring-emerald-500 focus:border-emerald-500"
-                  />
-                  {DEMO_ACCOUNTS.some(account => normalizePakistanPhone(account.phone) === normalizePakistanPhone(phone)) && (
-                    <p className="text-xs text-muted-foreground text-center">
-                      💡 Demo OTP code is: <span className="font-bold text-primary">123456</span>
-                    </p>
-                  )}
-                </div>
-                {error && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
-                  </div>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold py-3 rounded-xl shadow-lg"
-                  disabled={isVerifying || code.length < 6}
-                >
-                  {isVerifying ? <LoadingSpinner message="Verifying..." /> : (
-                    <span className="flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
-                      Verify & Continue
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-gray-500 hover:text-emerald-700"
-                  onClick={() => { setShowOtpForm(false); setCode(''); setError(null); }}
-                >
-                  ← Use a different number
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* FYP Demo Access Card */}
-        {!showOtpForm && (
-          <Card className="border-2 border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600 shadow-lg">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">
-                  🎓 FYP Demo
-                </span>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                  One-Click Demo Login
-                </p>
+    <main className="min-h-screen bg-[#f5f8f4] text-slate-900 lg:grid lg:grid-cols-2">
+      <section className="relative overflow-hidden bg-emerald-950 px-7 py-8 text-white sm:px-12 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-16">
+        <div aria-hidden="true" className="absolute -right-32 top-32 h-96 w-96 rounded-full border-[60px] border-emerald-800/30" />
+        <div className="relative flex items-center gap-3 text-2xl font-bold tracking-tight"><span className="rounded-2xl bg-emerald-400/15 p-3"><Leaf className="h-7 w-7 text-emerald-300" /></span>AgriGuard</div>
+        <div className="relative max-w-lg py-8 lg:py-20">
+          <p className="mb-5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">Your farming companion</p>
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl">Healthier crops.<br /><span className="text-emerald-300">Better tomorrow.</span></h1>
+          <p className="mt-6 max-w-sm text-base leading-7 text-emerald-100/80">Care for your crops, keep track of your farm, and find agricultural supplies near you.</p>
+          <div className="mt-10 hidden space-y-5 sm:block">
+            <div className="flex items-center gap-3 text-sm text-emerald-50"><Sprout className="h-5 w-5 text-emerald-300" /> Crop health insights and care plans</div>
+            <div className="flex items-center gap-3 text-sm text-emerald-50"><MapPin className="h-5 w-5 text-emerald-300" /> Agricultural suppliers near your location</div>
+          </div>
+        </div>
+        <p className="relative hidden text-sm text-emerald-200/70 lg:block">Built for growers. Rooted in Pakistan.</p>
+      </section>
+      <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:py-16" aria-label="Account access">
+        <div className="w-full max-w-md">
+          <div className="mb-8">
+            <p className="mb-2 text-sm font-semibold text-emerald-700">LET’S GET GROWING</p>
+            <h2 className="text-3xl font-bold tracking-tight">{mode === 'signup' ? 'Create your account' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-500">{mode === 'signup' ? 'Start your journey to healthier crops.' : mode === 'reset' ? 'Enter your email and we’ll send you a reset link.' : 'Sign in to your farm, reports and crop care plans.'}</p>
+          </div>
+          <fieldset disabled={Boolean(busy) || isUserLoading} className="min-w-0 space-y-6" aria-busy={Boolean(busy)}>
+            {mode !== 'reset' && <>
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/60 p-1">
+                <button type="button" aria-pressed={mode === 'login'} onClick={() => switchMode('login')} className={`rounded-lg py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 ${mode === 'login' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>Sign in</button>
+                <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchMode('signup')} className={`rounded-lg py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 ${mode === 'signup' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>Create account</button>
               </div>
-              <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
-                Click a demo account below → Then click <strong>&quot;Send OTP&quot;</strong> → Enter OTP: <strong className="text-primary">123456</strong>
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {DEMO_ACCOUNTS.map((demo) => (
-                  <button
-                    key={demo.phone}
-                    type="button"
-                    onClick={() => handleDemoLogin(demo)}
-                    className="flex flex-col items-start p-3 rounded-lg bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:border-amber-500 transition-all duration-200 cursor-pointer group shadow-sm hover:shadow-md"
-                  >
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 group-hover:text-amber-700 dark:group-hover:text-amber-300">
-                      {demo.label}
-                    </span>
-                    <span className="text-sm font-bold text-gray-800 dark:text-gray-100 mt-0.5">
-                      {demo.phone}
-                    </span>
-                    <span className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      OTP: {demo.otp} ✓
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 text-center text-xs text-muted-foreground bg-green-50/50 p-2 rounded-lg border border-green-100">
-                Developed by <span className="font-semibold text-green-700">Ayesha &amp; Amna</span> (FYP Students)
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-      </div>
-    </div>
+              <Button type="button" variant="outline" onClick={googleSignIn} className="h-12 w-full gap-3 rounded-xl border-slate-300 bg-white text-slate-700">
+                {busy === 'google' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.05.97-3.38.97-2.6 0-4.81-1.76-5.6-4.13H3.05v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.4 13.92a6 6 0 0 1 0-3.84V7.49H3.05a10 10 0 0 0 0 9.02l3.35-2.59Z"/><path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.83 1.51l2.88-2.88A9.61 9.61 0 0 0 12 2a10 10 0 0 0-8.95 5.49l3.35 2.59A5.99 5.99 0 0 1 12 5.95Z"/></svg>}
+                {busy === 'google' ? 'Connecting to Google…' : 'Continue with Google'}
+              </Button>
+              <div className="flex items-center gap-4 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />or continue with email<span className="h-px flex-1 bg-slate-200" /></div>
+            </>}
+            <form onSubmit={submit} className="space-y-5">
+              <div className="space-y-2"><Label htmlFor="email">Email address</Label><Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} className="h-12 rounded-xl border-slate-300 bg-white" /></div>
+              {mode !== 'reset' && <div className="space-y-2">
+                <div className="flex items-center justify-between"><Label htmlFor="password">Password</Label>{mode === 'login' && <button type="button" onClick={() => switchMode('reset')} className="text-xs font-semibold text-emerald-700 hover:underline">Forgot password?</button>}</div>
+                <div className="relative"><Input id="password" name="password" type={visible ? 'text' : 'password'} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={mode === 'signup' ? 8 : undefined} value={password} onChange={event => setPassword(event.target.value)} className="h-12 rounded-xl border-slate-300 bg-white pr-12" aria-describedby={mode === 'signup' ? 'password-hint' : undefined} /><button type="button" aria-label={visible ? 'Hide password' : 'Show password'} onClick={() => setVisible(!visible)} className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-slate-500">{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+                {mode === 'signup' && <p id="password-hint" className="text-xs text-slate-500">Use at least 8 characters. A mix of letters, numbers and symbols is best.</p>}
+              </div>}
+              {mode === 'signup' && <div className="space-y-2"><Label htmlFor="confirm-password">Confirm password</Label><Input id="confirm-password" name="confirm-password" type={visible ? 'text' : 'password'} autoComplete="new-password" required value={confirmation} onChange={event => setConfirmation(event.target.value)} className="h-12 rounded-xl border-slate-300 bg-white" /></div>}
+              {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+              {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+              <Button type="submit" className="h-12 w-full gap-2 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-800">{busy === 'email' ? <><Loader2 className="h-4 w-4 animate-spin" />Please wait…</> : <>{mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}<ArrowRight className="h-4 w-4" /></>}</Button>
+              {mode === 'reset' && <button type="button" onClick={() => switchMode('login')} className="w-full text-sm font-semibold text-emerald-700 hover:underline">Back to sign in</button>}
+            </form>
+          </fieldset>
+          <p className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-500"><ShieldCheck className="h-4 w-4 text-emerald-700" />Secure sign-in. Your farm, in one place.</p>
+        </div>
+      </section>
+    </main>
   );
 }
