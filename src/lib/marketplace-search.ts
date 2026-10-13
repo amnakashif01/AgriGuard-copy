@@ -5,6 +5,7 @@ import { collection, getDocs, getFirestore } from 'firebase/firestore/lite';
 import { firebaseConfig } from './firestore';
 import type { Supplier } from './models';
 import { nearbySuppliers, validCoordinates, matchesSupplierQuery, type Coordinates } from './supplier-location';
+import pakistanDirectory from './pakistan-suppliers.json';
 
 export type MarketplaceSupplier = Supplier & { source: 'registered' | 'openstreetmap' };
 export const countryAt = (point: Coordinates) => validCoordinates(point) ? iso1A2Code([point.lng, point.lat]) : undefined;
@@ -30,7 +31,7 @@ export function filterMarketplaceSuppliers(suppliers: Supplier[], origin: Coordi
     countryAt(supplier.location.coordinates) === country && matchesSupplierQuery(supplier, query));
 }
 
-type OSMElement = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+type OSMElement = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string | undefined> };
 
 const supplierSelectors = [
   '["shop"~"^(agrarian|agriculture|agro|agricultural_supplies|agricultural_machinery|seed|seeds|farm|garden_centre|garden_machinery|tractor)$"]',
@@ -52,7 +53,7 @@ export function osmSupplier(element: OSMElement): MarketplaceSupplier | null {
     || ['disused', 'abandoned', 'demolished', 'closed'].some(key => tags[key] === 'yes' || tags[`${key}:shop`])
     || /^(vacant|no|closed)$/.test(tags.shop || '')) return null;
   const declared = [tags.product, tags.produce, tags.crop, tags['agricultural:products'], tags.agrarian, tags['shop:agrarian']]
-    .filter(Boolean).flatMap(value => value.split(';')).map(value => value.trim()).filter(Boolean)
+    .filter((value): value is string => typeof value === 'string').flatMap(value => value.split(';')).map(value => value.trim()).filter(Boolean)
     .map(value => productLabels[value.toLowerCase()] || value.replace(/_/g, ' '));
   // Farm shops can sell dairy, poultry or honey; do not advertise them as seed dealers.
   const cropTerms = /seed|fertili[sz]er|pesticide|fungicide|agro|agri|grain|wheat|rice|maize|corn|tomato|mango|fruit|vegetable|crop|irrigation|tractor/i;
@@ -68,9 +69,18 @@ export function osmSupplier(element: OSMElement): MarketplaceSupplier | null {
   return {
     id: `osm-${element.type}-${element.id}`, source: 'openstreetmap', name: tags.name, type: 'supplier',
     location: { coordinates, address: tags['addr:full'] || [tags['addr:street'], tags['addr:city']].filter(Boolean).join(', '), city: tags['addr:city'] || '', province: tags['addr:state'] || '' },
-    products: [...new Set(products)], services: [], contact: { phone: tags.phone || tags['contact:phone'] || '', ...(tags['contact:whatsapp'] && { whatsapp: tags['contact:whatsapp'] }) },
+    products: [...new Set(products)], services: [], contact: { phone: tags.phone || tags['contact:phone'] || tags.mobile || '', ...(tags['contact:whatsapp'] && { whatsapp: tags['contact:whatsapp'] }) },
     rating: 0, availability: 'available', pricing: { competitive: false }, verification: { verified: false },
   };
+}
+
+export async function loadMarketplaceDirectory(origin: Coordinates): Promise<MarketplaceSupplier[]> {
+  if (countryAt(origin) !== 'PK') return fetchFreeMarketplaceSuppliers(origin);
+  // The official regional extract includes businesses mapped only by name as
+  // well as nursery areas. It works even when the public Overpass API is down,
+  // and does not transmit the user's location to an external map service.
+  return pakistanDirectory.elements.map(osmSupplier)
+    .filter((supplier): supplier is MarketplaceSupplier => supplier !== null);
 }
 
 export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promise<MarketplaceSupplier[]> {
@@ -133,10 +143,10 @@ export async function loadRegisteredSuppliers(authIdToken?: string): Promise<Sup
   }
 }
 
-export async function searchMarketplace(origin: Coordinates, radiusKm: number, query: string, registered = loadRegisteredSuppliers) {
+export async function searchMarketplace(origin: Coordinates, radiusKm: number, query: string, registered = loadRegisteredSuppliers, publicDirectory = loadMarketplaceDirectory) {
   const countryCode = countryAt(origin);
   if (!countryCode) throw new Error('We could not identify your location. Please use your saved city or try locating again.');
-  const [saved, directory] = await Promise.allSettled([registered(), fetchFreeMarketplaceSuppliers(origin)]);
+  const [saved, directory] = await Promise.allSettled([registered(), publicDirectory(origin)]);
   if (saved.status === 'rejected' && directory.status === 'rejected') throw new Error('Supplier search is temporarily unavailable. Please try again.');
   const candidates: MarketplaceSupplier[] = [
     ...(saved.status === 'fulfilled' ? saved.value.map(supplier => ({ ...supplier, source: 'registered' as const })) : []),
@@ -153,5 +163,6 @@ export async function searchMarketplace(origin: Coordinates, radiusKm: number, q
     ...(saved.status === 'rejected' ? ['Registered listings could not be loaded; showing available public listings.'] : []),
     ...(directory.status === 'rejected' ? ['Public listings could not be loaded; showing available registered listings.'] : []),
   ];
-  return { suppliers: deduplicated, countryCode, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode), warnings };
+  return { suppliers: deduplicated, countryCode, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode), warnings,
+    directoryUpdatedAt: countryCode === 'PK' && publicDirectory === loadMarketplaceDirectory ? pakistanDirectory.updatedAt : undefined };
 }

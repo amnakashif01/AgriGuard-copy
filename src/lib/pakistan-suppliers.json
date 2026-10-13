@@ -1,0 +1,1557 @@
+{
+  "updatedAt": "2026-10-12",
+  "source": "OpenStreetMap contributors / Geofabrik",
+  "sourceUrl": "https://download.geofabrik.de/asia/pakistan-261012.osm.pbf",
+  "sourceSha256": "4a21f9e64a3ac503150dc0343c370be6b093f0ec734330242c8e40c4494eb329",
+  "license": "ODbL-1.0",
+  "licenseUrl": "https://www.openstreetmap.org/copyright",
+  "elements": [
+    {
+      "type": "node",
+      "id": 297472969,
+      "lat": 33.973431,
+      "lon": 72.901776,
+      "tags": {
+        "name": "Pak China Fertilizer Ltd."
+      }
+    },
+    {
+      "type": "node",
+      "id": 309597942,
+      "lat": 33.9951894,
+      "lon": 72.9280923,
+      "tags": {
+        "name": "Khizar Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1811294214,
+      "lat": 29.6353592,
+      "lon": 71.9045449,
+      "tags": {
+        "name": "Balouch Tractor House",
+        "shop": "car_repair"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1921954087,
+      "lat": 30.21723,
+      "lon": 71.536939,
+      "tags": {
+        "name": "Pak Arab Fertilizers (Pvt.) Limited"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2450430346,
+      "lat": 33.5906641,
+      "lon": 73.0550874,
+      "tags": {
+        "name": "Fauji Fertilizer",
+        "office": "yes"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2576295183,
+      "lat": 31.4491821,
+      "lon": 74.2694467,
+      "tags": {
+        "name": "Plant Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2914225950,
+      "lat": 31.6456337,
+      "lon": 74.1731605,
+      "tags": {
+        "name": "Fecto Belrus Tractors"
+      }
+    },
+    {
+      "type": "node",
+      "id": 3810877454,
+      "lat": 31.614178,
+      "lon": 74.2616405,
+      "tags": {
+        "addr:city": "LAHORE",
+        "addr:street": "Lahore Sheikhupura Road",
+        "name": "CAPITAL TRACTORS",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4320083716,
+      "lat": 31.0831939,
+      "lon": 71.2090003,
+      "tags": {
+        "name": "Agro Mart"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4327698328,
+      "lat": 32.6102601,
+      "lon": 71.5461973,
+      "tags": {
+        "name": "Waqar Tractor Parts",
+        "shop": "car"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4679023592,
+      "lat": 25.1794276,
+      "lon": 69.5637894,
+      "tags": {
+        "addr:street": "bostan road kunri Sindh Pakistan",
+        "name": "Almustfa tractor showroom",
+        "phone": "0238557144",
+        "shop": "car"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4738187727,
+      "lat": 24.9320387,
+      "lon": 67.0380705,
+      "tags": {
+        "addr:city": "Karachi",
+        "name": "KDA Plant Nursery",
+        "shop": "florist"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4739231352,
+      "lat": 24.8328777,
+      "lon": 67.2980813,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "North Western Industrial Zone Port Qasim",
+        "name": "Shujaabad Agro Industries",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4741246322,
+      "lat": 24.9357518,
+      "lon": 67.0310837,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Shahrah Noor Jahan",
+        "name": "Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4753305459,
+      "lat": 32.2943008,
+      "lon": 71.4808068,
+      "tags": {
+        "name": "Abdul Rehman Farm & Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4758222516,
+      "lat": 24.8825172,
+      "lon": 67.112451,
+      "tags": {
+        "addr:city": "کراچی",
+        "addr:street": "Shahrah e Faisal",
+        "name": "PAF Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4762522248,
+      "lat": 24.9138699,
+      "lon": 67.0923348,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Haji Bashir Ahmed Ghazi Abadi Road",
+        "name": "Shalamar Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4773096332,
+      "lat": 24.9318929,
+      "lon": 67.1208299,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "University Road",
+        "name": "KU Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4773397447,
+      "lat": 24.8719317,
+      "lon": 67.078799,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Shaheed-e-Millat Service Rd",
+        "name": "Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4773814221,
+      "lat": 25.1763777,
+      "lon": 69.5676005,
+      "tags": {
+        "name": "Mustafa tractor house kunri",
+        "name:en": "Mustafa tractor house kunri",
+        "shop": "car"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4788425055,
+      "lat": 24.7973341,
+      "lon": 67.0453637,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Badar Commercial Street 11",
+        "name": "Vitax home & garden",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4910707116,
+      "lat": 31.7171253,
+      "lon": 73.9562511,
+      "tags": {
+        "addr:city": "Sheikhupura",
+        "addr:street": "Sheikhupura - Sargodha Road",
+        "name": "Chenab Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4923820083,
+      "lat": 29.4275423,
+      "lon": 71.6644633,
+      "tags": {
+        "addr:city": "Bahawalpur",
+        "addr:street": "Multan Rd",
+        "name": "Al Noor Agro chemicals"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5085935453,
+      "lat": 24.9163873,
+      "lon": 67.1224255,
+      "tags": {
+        "name": "Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5122256926,
+      "lat": 24.8571131,
+      "lon": 67.0278402,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Abdullah Haroon Road",
+        "name": "UHK Tractors",
+        "phone": "92 313 2867315",
+        "shop": "car"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5128267587,
+      "lat": 24.9059568,
+      "lon": 67.0247273,
+      "tags": {
+        "addr:street": "Nazimabad",
+        "name": "Plants Nursery Nazimabad"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5135010983,
+      "lat": 24.8373483,
+      "lon": 67.0694261,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "16th Street East",
+        "name": "Al Gahzi Tractors Limited",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5153406051,
+      "lat": 24.821319,
+      "lon": 67.029168,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "3rd Avenue",
+        "name": "Kahkashan Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5255460660,
+      "lat": 27.2859025,
+      "lon": 68.5080927,
+      "tags": {
+        "addr:city": "Ranipur Riyast",
+        "addr:street": "National Highway 5",
+        "craft": "electronics_repair",
+        "name": "Brohi Tractor Workshop"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5314600072,
+      "lat": 25.0341046,
+      "lon": 66.8757905,
+      "tags": {
+        "addr:city": "Balochistan",
+        "addr:street": "RCD Highway",
+        "name": "Gwadar Agricultural Workshop",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5319718133,
+      "lat": 25.3836681,
+      "lon": 68.3486286,
+      "tags": {
+        "addr:city": "حیدرآباد",
+        "addr:street": "Thandi Sarak",
+        "name": "Chief Engineer Irrigation Development",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5344316144,
+      "lat": 24.9379854,
+      "lon": 67.0651275,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Street 1",
+        "name": "Atruli Nursery"
+      }
+    },
+    {
+      "type": "node",
+      "id": 6452767006,
+      "lat": 28.4183305,
+      "lon": 70.3033061,
+      "tags": {
+        "name": "Rathore Rice Traders",
+        "phone": "+92 0313 8676801",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 6610891065,
+      "lat": 32.230629,
+      "lon": 74.7584324,
+      "tags": {
+        "agrarian": "fertilizer",
+        "name": "Haq Bahu Fertilizer",
+        "phone": "+92 0300 7171068; +92 0345 7769888",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 7133632844,
+      "lat": 28.4202484,
+      "lon": 70.3045098,
+      "tags": {
+        "name": "شاہد اسپرے مرکز",
+        "name:en": "Shahid Spray Centre",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 7617938445,
+      "lat": 32.4919023,
+      "lon": 74.0886847,
+      "tags": {
+        "name": "chenab view nursery farm"
+      }
+    },
+    {
+      "type": "node",
+      "id": 7877399148,
+      "lat": 28.3294044,
+      "lon": 70.2545438,
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Shahid Usman Flower Nursery/Farm",
+        "phone": "03008671120"
+      }
+    },
+    {
+      "type": "node",
+      "id": 7934984132,
+      "lat": 35.0922654,
+      "lon": 76.0064016,
+      "tags": {
+        "addr:city": "Madhupur",
+        "name": "Govt. Fruit Nursery, Madhupur"
+      }
+    },
+    {
+      "type": "node",
+      "id": 8059632488,
+      "lat": 32.3965042,
+      "lon": 71.5366925,
+      "tags": {
+        "name": "FD Nursery",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 8584166708,
+      "lat": 32.1036664,
+      "lon": 74.1671259,
+      "tags": {
+        "name": "Dawood Agro Company",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 8730091552,
+      "lat": 30.9226012,
+      "lon": 72.8473705,
+      "tags": {
+        "addr:city": "Zafar Chowk",
+        "addr:street": "Tandlianwala-Mamukanjan Road",
+        "name": "Rao Zari Corporation",
+        "phone": "+923457859389",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 8788155079,
+      "lat": 32.5736465,
+      "lon": 72.1581476,
+      "tags": {
+        "name": "Saiban Zarai Markaz",
+        "phone": "03366946954",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 9224746870,
+      "lat": 31.7163847,
+      "lon": 74.3855448,
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Welcome Nursery Farm",
+        "phone": "+92 300 8483341; +92 332 4040344"
+      }
+    },
+    {
+      "type": "node",
+      "id": 10292488498,
+      "lat": 30.3483314,
+      "lon": 72.2381291,
+      "tags": {
+        "addr:city": "Mian Channu",
+        "addr:street": "Chak One hundred and fifteen-Left",
+        "name": "Dera Chaudhary Farooq Salman Numberdar",
+        "phone": "+923125755108",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 10978473232,
+      "lat": 32.5729031,
+      "lon": 72.1576531,
+      "tags": {
+        "name": "Naya Sawera",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 11033285213,
+      "lat": 31.4591715,
+      "lon": 74.2255988,
+      "tags": {
+        "addr:city": "Lahore Canal Bank Co-Operative Housing Society Phase 1 (Gulbahar Park)",
+        "addr:street": "Main Amir Kot, Lahore",
+        "agrarian": "feed;milk;grass",
+        "name": "CH ANWAR DHILLION DERA",
+        "phone": "+92324 4096802",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 11061787171,
+      "lat": 31.4034567,
+      "lon": 71.8363469,
+      "tags": {
+        "agrarian": "rhodesgrass;aloevera;dates;citrus",
+        "name": "Oasis Farm",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 11835844760,
+      "lat": 33.5275845,
+      "lon": 73.1699967,
+      "tags": {
+        "name": "DHA Nursery",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12133609784,
+      "lat": 24.9224333,
+      "lon": 67.0756087,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "W3FG+253, Federal B Area Dastagir Block 9 Gulberg Town,",
+        "name": "Dastagir Nursery۔ دستگیر نرسری",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12137314740,
+      "lat": 24.8753115,
+      "lon": 67.0711199,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "V3GC+4FM, Shaheed-e-Millat Rd, Rohail Khand Society Karachi Memon Society P.E.C.H.S.,",
+        "name": "Oasis Nursery and Horticulture",
+        "phone": "03002731651",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12144392724,
+      "lat": 24.9033285,
+      "lon": 67.0698244,
+      "tags": {
+        "addr:city": "03353773432",
+        "addr:street": "Gulshan E Iqbal, Showroom no, R55, Hasan Square Block 13 A Gulshan-e-Iqbal, Karachi,",
+        "name": "Green Deco Artificial grass",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12146446052,
+      "lat": 24.9030662,
+      "lon": 67.0692668,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Micasa luxury apartment, Essa Nagri Eissa Nagri, Karachi,",
+        "name": "Grow Organic",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12157197981,
+      "lat": 24.9266963,
+      "lon": 67.0769149,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "block 15, Federal, near Javeed nihari,",
+        "name": "Hara organic Pakistan",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12157305665,
+      "lat": 24.9090797,
+      "lon": 67.0446738,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Block-12, Block 12 Gulberg Town, Karachi, Pakistan",
+        "name": "Charming Pots",
+        "phone": "03060031990",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12162737960,
+      "lat": 24.906566,
+      "lon": 67.0314639,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Nawab Siddique Ali Khan Rd, Block 2 2 Nazimabad, Karachi, Karachi City, Sindh 74600, Pakistan",
+        "craft": "gardener",
+        "name": "Mustafa nursery."
+      }
+    },
+    {
+      "type": "node",
+      "id": 12176670449,
+      "lat": 24.8860133,
+      "lon": 67.033087,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": ", Garden Road, Garden East Garden West Area,",
+        "name": "Sindhi Nursery۔ سندھی نرسری",
+        "phone": "03363064394",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12183840896,
+      "lat": 24.9382998,
+      "lon": 67.0420576,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "CD 40, Block E North Nazimabad Town",
+        "name": "Plant seeds and fertilizer shop",
+        "shop": "yes"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12188187200,
+      "lat": 24.9471862,
+      "lon": 67.0412069,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "W2WR+VFF, Block D North Nazimabad Town",
+        "name": "Nursery Plant",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12188214502,
+      "lat": 24.9473953,
+      "lon": 67.0409038,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "W2WR+X8H, Shahrah-e-Jahangir Rd, Block D North Nazimabad Town",
+        "name": "Rana Nursery",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12189851375,
+      "lat": 24.9264694,
+      "lon": 67.0444536,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "AO Street, Block F North Nazimabad Town",
+        "name": "Gulab Mehal Nursery",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12205472615,
+      "lat": 24.914528,
+      "lon": 67.0220874,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Aurangabad Block 3 Nazimabad, Karachi, Karachi City, Sindh 74600, Pakistan",
+        "name": "Falower shop 3g 9/1 nazimabad",
+        "phone": "03452893936",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12219007692,
+      "lat": 24.9192085,
+      "lon": 67.1436751,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "W49V+Q97, Block 11 Gulistan-e-Johar,",
+        "name": "Ashraf fruit Cart",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12219383225,
+      "lat": 24.8670847,
+      "lon": 67.0259139,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Office No. 3 Rehman Plaza 90A-1, Depot Lines, opp. Aman Tower,",
+        "name": "Agrico Tractors",
+        "shop": "yes"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12227668571,
+      "lat": 24.9480506,
+      "lon": 67.0515191,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "W3X2+6J6, Block K North Nazimabad",
+        "name": "فاروق اعظم نرسری",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12230334078,
+      "lat": 32.1674007,
+      "lon": 74.1860115,
+      "tags": {
+        "addr:city": "Gujranwala",
+        "addr:street": "Gujranwala Flyover",
+        "name": "CH. MAZHAR IQBAL SEEDS TRADING COMPANY PVT. LTD",
+        "phone": "+923468044381",
+        "shop": "supermarket"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12230370818,
+      "lat": 32.1673727,
+      "lon": 74.1857517,
+      "tags": {
+        "addr:city": "Gujranwala",
+        "addr:street": "Grain Market",
+        "name": "Chanar Agro",
+        "phone": "+923317637080",
+        "shop": "supermarket"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12231615803,
+      "lat": 24.9600342,
+      "lon": 67.0753045,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "Plot R 1242, Sector 15-B Sector 15 B Buffer Zone",
+        "name": "HAJI TAJ MANDI",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12258651793,
+      "lat": 24.9217124,
+      "lon": 66.9630578,
+      "tags": {
+        "addr:city": "karachi",
+        "addr:street": "Faqir Colony Rd, Sector 4 - A Sector 4 Baldia, Karachi, Karachi City, Sindh, Pakistan",
+        "name": "Plant Nursery",
+        "phone": "03137700223",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12261086972,
+      "lat": 24.9135697,
+      "lon": 67.0854712,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "L 16 Umrao Tariq Rd, opposite Zuberi Family park, Block 13D-1 Block 13 D 1 Gulshan-e-Iqbal,",
+        "name": "VitWOS_Vital World of Organic seeds",
+        "shop": "health_food"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12294153135,
+      "lat": 24.918776,
+      "lon": 67.0903623,
+      "tags": {
+        "addr:city": "Karachi",
+        "addr:street": "h, askari 5, house no 170",
+        "name": "Emaan Farm",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12395993201,
+      "lat": 29.0222365,
+      "lon": 70.8172466,
+      "tags": {
+        "name": "Kissan Dost Zari Markaz",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12430252489,
+      "lat": 33.6152289,
+      "lon": 72.3349014,
+      "tags": {
+        "name": "Farooq Zada Farm House",
+        "shop": "garden_centre"
+      }
+    },
+    {
+      "type": "node",
+      "id": 12645840502,
+      "lat": 31.6167697,
+      "lon": 74.2607793,
+      "tags": {
+        "addr:street": "Sheikhupura Road",
+        "name": "Millat Tractors Limited",
+        "office": "company"
+      }
+    },
+    {
+      "type": "node",
+      "id": 13622991394,
+      "lat": 29.6779625,
+      "lon": 71.5873994,
+      "tags": {
+        "addr:city": "Lodhran",
+        "addr:street": "Jalalabad Mor قومی شاہراہ",
+        "craft": "agricultural_engines",
+        "name": "Dhudi Agro service",
+        "phone": "+92 345 4062239"
+      }
+    },
+    {
+      "type": "node",
+      "id": 13686642628,
+      "lat": 34.4082955,
+      "lon": 71.7869846,
+      "tags": {
+        "addr:city": "Malankand",
+        "addr:street": "Nihar Bangla, Badraga - Malakand",
+        "agrarian": "feed;yes",
+        "name": "Shah Saiban",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 13731451201,
+      "lat": 29.8626722,
+      "lon": 71.3157219,
+      "tags": {
+        "addr:street": "Lodhran-Shuajabad Road",
+        "name": "Ittefaq Rice Mill's",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 14021279462,
+      "lat": 29.9081162,
+      "lon": 72.1363419,
+      "tags": {
+        "name": "DERA UMAIR CHOHAN",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "node",
+      "id": 14073641502,
+      "lat": 29.9091632,
+      "lon": 72.3069421,
+      "tags": {
+        "shop": "agrarian",
+        "name": "Mapped agricultural shop"
+      }
+    },
+    {
+      "type": "node",
+      "id": 14144205459,
+      "lat": 27.3708055,
+      "lon": 68.0926934,
+      "tags": {
+        "addr:city": "Dokri",
+        "name": "Al Mansoor Zarai Markaz Juneja Ice Factory Dokri",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "way",
+      "id": 61671150,
+      "center": {
+        "lat": 31.4689173,
+        "lon": 74.4140967
+      },
+      "tags": {
+        "landuse": "meadow",
+        "name": "Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 232556300,
+      "center": {
+        "lat": 31.5018528,
+        "lon": 74.41837079999999
+      },
+      "tags": {
+        "name": "D.G Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 320121787,
+      "center": {
+        "lat": 34.0053498,
+        "lon": 71.46487065
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Tree Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 327889681,
+      "center": {
+        "lat": 28.4292164,
+        "lon": 70.31724514999999
+      },
+      "tags": {
+        "name": "Nursery Grounds"
+      }
+    },
+    {
+      "type": "way",
+      "id": 327889682,
+      "center": {
+        "lat": 28.4292431,
+        "lon": 70.31946105
+      },
+      "tags": {
+        "name": "Nursery Grounds"
+      }
+    },
+    {
+      "type": "way",
+      "id": 375759677,
+      "center": {
+        "lat": 33.7450298,
+        "lon": 73.08610060000001
+      },
+      "tags": {
+        "landuse": "farmland",
+        "name": "Forest Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 441456053,
+      "center": {
+        "lat": 34.03916495,
+        "lon": 72.6741293
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 446943941,
+      "center": {
+        "lat": 30.27450045,
+        "lon": 73.063936
+      },
+      "tags": {
+        "landuse": "industrial",
+        "name": "Jullundur Seed Corporation"
+      }
+    },
+    {
+      "type": "way",
+      "id": 483630314,
+      "center": {
+        "lat": 24.824863649999998,
+        "lon": 67.03617285
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Lalazar Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 500980118,
+      "center": {
+        "lat": 31.4870048,
+        "lon": 74.29932575000001
+      },
+      "tags": {
+        "addr:city": "Lahore",
+        "addr:street": "Allamah Shabbir Ahmad Usmani Road",
+        "landuse": "plant_nursery",
+        "name": "AIMC Rose Garden"
+      }
+    },
+    {
+      "type": "way",
+      "id": 513849077,
+      "center": {
+        "lat": 24.91029495,
+        "lon": 67.05356885
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Sharifabad Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 544699081,
+      "center": {
+        "lat": 31.48407925,
+        "lon": 74.41995145
+      },
+      "tags": {
+        "addr:city": "Lahore",
+        "addr:street": "Bedian Road",
+        "name": "Mulla Ashraf Tractor Workshop And Generator Works",
+        "shop": "car_repair"
+      }
+    },
+    {
+      "type": "way",
+      "id": 564219526,
+      "center": {
+        "lat": 27.491971550000002,
+        "lon": 68.76125965
+      },
+      "tags": {
+        "landuse": "farmyard",
+        "name": "Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 593875074,
+      "center": {
+        "lat": 25.158001,
+        "lon": 66.79313635
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 637199625,
+      "center": {
+        "lat": 36.0597516,
+        "lon": 71.819738
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Gulsambar Nusery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 735200334,
+      "center": {
+        "lat": 28.2685027,
+        "lon": 70.07326334999999
+      },
+      "tags": {
+        "landuse": "industrial",
+        "name": "Fauji Fertilizer Company"
+      }
+    },
+    {
+      "type": "way",
+      "id": 763420560,
+      "center": {
+        "lat": 28.420364050000003,
+        "lon": 70.30447225
+      },
+      "tags": {
+        "amenity": "marketplace",
+        "name": "Pesticide Market"
+      }
+    },
+    {
+      "type": "way",
+      "id": 783838169,
+      "center": {
+        "lat": 24.86055315,
+        "lon": 67.06113855000001
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Green Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 783838170,
+      "center": {
+        "lat": 24.8608921,
+        "lon": 67.0617627
+      },
+      "tags": {
+        "landuse": "commercial",
+        "name": "Nursery Market"
+      }
+    },
+    {
+      "type": "way",
+      "id": 988088096,
+      "center": {
+        "lat": 29.4869245,
+        "lon": 73.04520735
+      },
+      "tags": {
+        "name": "Canola Seeds Area"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1039173841,
+      "center": {
+        "lat": 28.0246727,
+        "lon": 69.5820464
+      },
+      "tags": {
+        "landuse": "industrial",
+        "name": "Fauji Fertilizer Company"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1119171359,
+      "center": {
+        "lat": 28.536780800000003,
+        "lon": 68.2278108
+      },
+      "tags": {
+        "name": "Panjtani Tractor and Car Showroom"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1137833011,
+      "center": {
+        "lat": 24.780173050000002,
+        "lon": 67.07462910000001
+      },
+      "tags": {
+        "shop": "garden_centre",
+        "name": "Mapped agricultural shop"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1146695613,
+      "center": {
+        "lat": 33.5185106,
+        "lon": 73.173419
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1147076470,
+      "center": {
+        "lat": 33.5757907,
+        "lon": 73.15219515000001
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1147842557,
+      "center": {
+        "lat": 33.503626100000005,
+        "lon": 73.19266015
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1148006121,
+      "center": {
+        "lat": 33.553801,
+        "lon": 73.21210005
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1148006122,
+      "center": {
+        "lat": 33.554751499999995,
+        "lon": 73.21486445
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1268581372,
+      "center": {
+        "lat": 24.7794106,
+        "lon": 67.0864286
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Pattoki Nursery Karachi DHA Phase 8"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1273065293,
+      "center": {
+        "lat": 31.446953999999998,
+        "lon": 74.43153455
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Nursery Sector B"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1275187598,
+      "center": {
+        "lat": 33.531482600000004,
+        "lon": 73.18353115
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1275932033,
+      "center": {
+        "lat": 36.5002695,
+        "lon": 73.89256915
+      },
+      "tags": {
+        "landuse": "forest",
+        "name": "Nursery",
+        "produce": "timber"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1277774578,
+      "center": {
+        "lat": 32.5181507,
+        "lon": 74.70252515
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Chakrohi Mega Fruit Plant Nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1343996475,
+      "center": {
+        "lat": 28.15222265,
+        "lon": 68.6393721
+      },
+      "tags": {
+        "shop": "agrarian",
+        "name": "Mapped agricultural shop"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1379037908,
+      "center": {
+        "lat": 24.9905909,
+        "lon": 67.17006755
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1427036059,
+      "center": {
+        "lat": 24.86029355,
+        "lon": 67.2753639
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1430170388,
+      "center": {
+        "lat": 24.87713215,
+        "lon": 67.3287829
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Bangash nursery forum"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1450915298,
+      "center": {
+        "lat": 31.391156350000003,
+        "lon": 74.1116964
+      },
+      "tags": {
+        "addr:city": "Lahore",
+        "addr:street": "Subhan Ashiq Road",
+        "name": "Hafiz Agro Services",
+        "phone": "+923004568691,+923015200832,+92308 6782810",
+        "shop": "farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1472871820,
+      "center": {
+        "lat": 31.5441524,
+        "lon": 74.5595943
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1472886257,
+      "center": {
+        "lat": 31.5340421,
+        "lon": 74.52941915
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1493635250,
+      "center": {
+        "lat": 34.4105859,
+        "lon": 71.78493565
+      },
+      "tags": {
+        "addr:city": "Hari Chand, Charsadda",
+        "addr:street": "Nihar Bangla, Badraga - Malakand",
+        "agrarian": "agricultural_machinery",
+        "name": "Shah Saiban",
+        "phone": "+92 305-5766526",
+        "shop": "agrarian"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1536497878,
+      "center": {
+        "lat": 33.6814366,
+        "lon": 73.04762715000001
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1550757737,
+      "center": {
+        "lat": 32.32666265,
+        "lon": 74.3713706
+      },
+      "tags": {
+        "landuse": "plant_nursery",
+        "name": "Mapped plant nursery"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752328,
+      "center": {
+        "lat": 31.50091545,
+        "lon": 74.385009
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0334-4382726, 0321-4153108",
+        "name": "Al-Madina Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752330,
+      "center": {
+        "lat": 31.5007652,
+        "lon": 74.38500915
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0322-4646676, 0300-4646676",
+        "name": "Mian Khalid Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752332,
+      "center": {
+        "lat": 31.49979555,
+        "lon": 74.38495795
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0333-4503565",
+        "name": "Rafique Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752337,
+      "center": {
+        "lat": 31.5003398,
+        "lon": 74.3850063
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0309-4028197, 0300-4180525, 0303-4266133",
+        "name": "Pind Dadan Khan Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752340,
+      "center": {
+        "lat": 31.50021915,
+        "lon": 74.38500669999999
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0343-0011782, 0304-4524287, 0326-4085590",
+        "name": "Mehar Azhar Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752341,
+      "center": {
+        "lat": 31.5006455,
+        "lon": 74.38500915
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0304-4022705, 0307-5616883, 0321-4022705",
+        "name": "Jardin & Flora Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752343,
+      "center": {
+        "lat": 31.4999481,
+        "lon": 74.38495285
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0307-7070099",
+        "name": "Green Life Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752347,
+      "center": {
+        "lat": 31.50009075,
+        "lon": 74.38495
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0323-4014743",
+        "name": "Abbas Nursery Farm"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1560752348,
+      "center": {
+        "lat": 31.50047385,
+        "lon": 74.3850061
+      },
+      "tags": {
+        "addr:city": "Lahore Cantt",
+        "addr:street": "Ahmed Bukhsh Road",
+        "landuse": "plant_nursery",
+        "mobile": "0300-4255811",
+        "name": "Shawan Nursery Farm"
+      }
+    }
+  ]
+}
