@@ -104,7 +104,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 }
                 if (controller.signal.aborted) return;
                 setSuppliers(nearbySuppliers(data.suppliers, data.location, radiusKm));
-                setLocationLabel([data.location.city || 'Saved location', data.country].filter(Boolean).join(' · '));
+                setLocationLabel(data.location.city || 'Saved location');
                 setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
             } catch (cause) {
                 if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Unable to find nearby suppliers.');
@@ -132,7 +132,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                             <MapPin className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
                             <span>{locating ? 'Finding your current location...' : currentLocation ? locationLabel || 'Current location' : !profileLoaded ? 'Loading your saved location...' : locationLabel || profile?.location || (hasLocation ? 'Saved location' : 'Choose your location')}</span>
                         </CardDescription>
-                        <p className="mt-2 text-sm text-slate-500">Within {radiusKm} km · Same country · Nearest first</p>
+                        <p className="mt-2 text-sm text-slate-500">Within {radiusKm} km of your location · Nearest first</p>
                         <p className="mt-1 text-xs text-slate-500">Approximate straight-line distances{currentLocation ? ` · Device accuracy about ${Math.max(1, Math.round(currentLocation.accuracy))} m` : ' · From your saved city centre'}</p>
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                             <Button type="button" onClick={useMyLocation} disabled={locating} className="min-h-11"><LocateFixed className="me-2 h-4 w-4" />{locating ? 'Locating...' : 'Use My Location'}</Button>
@@ -158,7 +158,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 : error ? <div role="alert" className="rounded-xl bg-amber-50 p-5 text-amber-900"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRetry(value => value + 1)}>Try again</Button></div>
                 : !hasLocation ? <div className="py-8 text-center"><p className="mb-4 text-slate-600">Use My Location above, or save your city to see suppliers near you.</p><Button asChild><Link href="/profile">Set my location</Link></Button></div>
                 : visibleSuppliers.length ? <div className="grid gap-4">{visibleSuppliers.map((supplier, index) => <SupplierCard key={supplier.id} supplier={supplier} index={index} />)}</div>
-                : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km in your country.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another crop or product, or check your selected location.'}</p></div>}
+                : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km of your location.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another crop or product, or check your selected location.'}</p></div>}
                 {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>. Contact the supplier to confirm stock and services.</p>}
             </CardContent>
         </Card>

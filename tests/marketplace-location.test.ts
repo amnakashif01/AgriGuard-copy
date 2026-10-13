@@ -50,8 +50,10 @@ test('directory request uses only a broad integer tile; no exact GPS or paid pro
   globalThis.fetch = async (url, options) => {
     urls.push(String(url));
     const query = new URLSearchParams(String(options?.body)).get('data')!;
-    assert.match(query, /area\["ISO3166-1"="PK"\]/);
-    assert.ok(query.includes('(30,73,33,76)'));
+    assert.ok(query.includes('(31,73,33,75)'));
+    assert.ok(query.includes('["landuse"="plant_nursery"]'));
+    assert.ok(query.includes('agricultural_machinery'));
+    assert.ok(query.includes('["trade"'));
     assert.ok(!query.includes(String(lahore.lat)) && !query.includes(String(lahore.lng)));
     return Response.json({ elements: [] });
   };
@@ -60,6 +62,52 @@ test('directory request uses only a broad integer tile; no exact GPS or paid pro
   assert.deepEqual(result.suppliers, []);
   assert.deepEqual(urls, ['https://overpass-api.de/api/interpreter']);
   assert.equal(supplierSearchBounds({ lat: 1.2, lng: 179.9 }).length, 2);
+});
+
+test('coarse directory bounds cover every 50 km bearing around Islamabad and Lahore', () => {
+  for (const origin of [lahore, { lat: 33.72148, lng: 73.04329 }]) {
+    const [south, west, north, east] = supplierSearchBounds(origin)[0].split(',').map(Number);
+    assert.ok([south, west, north, east].every(Number.isInteger));
+    for (let bearing = 0; bearing < 360; bearing += 15) {
+      const direction = bearing * Math.PI / 180;
+      const lat = origin.lat * Math.PI / 180;
+      const arc = 50 / 6371;
+      const nextLat = Math.asin(Math.sin(lat) * Math.cos(arc) + Math.cos(lat) * Math.sin(arc) * Math.cos(direction));
+      const nextLng = origin.lng + Math.atan2(Math.sin(direction) * Math.sin(arc) * Math.cos(lat), Math.cos(arc) - Math.sin(lat) * Math.sin(nextLat)) * 180 / Math.PI;
+      assert.ok(nextLat * 180 / Math.PI >= south && nextLat * 180 / Math.PI <= north);
+      assert.ok(nextLng >= west && nextLng <= east);
+    }
+  }
+});
+
+test('nurseries and agricultural tags add useful listings without nursery schools or closed shops', () => {
+  const element = { type: 'node', id: 4, lat: 33.7, lon: 73.04 };
+  const nursery = osmSupplier({ ...element, tags: { name: 'City Nursery', landuse: 'plant_nursery' } })!;
+  assert.deepEqual(nursery.products, ['Plants & Nursery Supplies']);
+  const seeds = osmSupplier({ ...element, tags: { name: 'Growers Centre', shop: 'agrarian', agrarian: 'seed;fertilizer;agricultural_machinery' } })!;
+  assert.deepEqual(seeds.products, ['Seeds', 'Fertilizers', 'Farm Equipment']);
+  assert.equal(matchesSupplierQuery(seeds, 'fertiliser'), true);
+  assert.equal(matchesSupplierQuery(seeds, 'mango'), false);
+  assert.equal(osmSupplier({ ...element, tags: { name: 'City Nursery School', shop: 'yes' } }), null);
+  assert.equal(osmSupplier({ ...element, tags: { name: 'City Nursery', amenity: 'kindergarten' } }), null);
+  assert.equal(osmSupplier({ ...element, tags: { name: 'Old Seeds', shop: 'agrarian', disused: 'yes' } }), null);
+});
+
+test('public mirror recovers from an unavailable or incomplete provider while enforcing radius', async () => {
+  for (const firstResponse of [new Response('', { status: 503 }), Response.json({ elements: [], remark: 'Query timed out' })]) {
+    const urls: string[] = [];
+    globalThis.fetch = async url => {
+      urls.push(String(url));
+      return urls.length === 1 ? firstResponse : Response.json({ elements: [
+        { type: 'node', id: 8, lat: 31.55, lon: 74.35, tags: { name: 'Local Nursery', landuse: 'plant_nursery' } },
+        { type: 'node', id: 9, lat: 32.5, lon: 74.35, tags: { name: 'Far Nursery', landuse: 'plant_nursery' } },
+      ] });
+    };
+    const result = await searchMarketplace(lahore, 50, '', async () => []);
+    assert.deepEqual(result.suppliers.map(s => s.name), ['Local Nursery']);
+    assert.deepEqual(result.warnings, []);
+    assert.deepEqual(urls, ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']);
+  }
 });
 
 test('only genuine listing products match; poultry farms cannot claim seeds or arbitrary search terms', () => {

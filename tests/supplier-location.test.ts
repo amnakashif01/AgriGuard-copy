@@ -91,7 +91,7 @@ test('API resolves Islamabad even with an incorrect province and stale Lahore co
       { name: 'Islamabad', latitude: 34, longitude: 70, country_code: 'AF', population: 9000000 },
       { name: 'Islamabad', latitude: 33.7215, longitude: 73.0433, country_code: 'PK', admin1: 'Islamabad Capital Territory' },
     ] });
-    assert.match(decodeURIComponent(String(options?.body)), /ISO3166-1.*PK/);
+    assert.ok(decodeURIComponent(String(options?.body)).includes('(33,72,35,74)'));
     assert.ok(!String(options?.body).includes('33.7215'), 'exact location stays inside the app');
     return Response.json({ elements: [
       { type: 'node', id: 1, lat: 33.7215, lon: 73.0433, tags: { name: 'Nearby seeds', shop: 'agrarian' } },
@@ -102,6 +102,7 @@ test('API resolves Islamabad even with an incorrect province and stale Lahore co
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.location.city, 'Islamabad, Islamabad Capital Territory');
+  assert.equal(data.countryCode, 'PK');
   assert.deepEqual(data.suppliers.map((s: Supplier) => s.name), ['Nearby seeds']);
   assert.equal(data.radiusKm, 10);
   assert.equal(urls.length, 2);
