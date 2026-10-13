@@ -167,7 +167,8 @@ export type AdminLog = {
 
 export type Supplier = {
   id: string;
-  source?: 'registered' | 'openstreetmap';
+  source?: 'registered' | 'openstreetmap' | 'public-review';
+  reviewEvidence?: { count: number; checkedAt: string; source: 'Google Maps'; url: string; summary: string };
   name: string;
   type: 'supplier' | 'buyer' | 'logistics';
   location: {

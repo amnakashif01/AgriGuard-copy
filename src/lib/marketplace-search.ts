@@ -6,8 +6,9 @@ import { firebaseConfig } from './firestore';
 import type { Supplier } from './models';
 import { nearbySuppliers, validCoordinates, matchesSupplierQuery, type Coordinates } from './supplier-location';
 import pakistanDirectory from './pakistan-suppliers.json';
+import { reviewedSuppliers } from './supplier-recommendations';
 
-export type MarketplaceSupplier = Supplier & { source: 'registered' | 'openstreetmap' };
+export type MarketplaceSupplier = Supplier & { source: 'registered' | 'openstreetmap' | 'public-review' };
 export const countryAt = (point: Coordinates) => validCoordinates(point) ? iso1A2Code([point.lng, point.lat]) : undefined;
 
 /** A coarse regional tile, never the device's precise coordinates, goes to OSM. */
@@ -79,8 +80,8 @@ export async function loadMarketplaceDirectory(origin: Coordinates): Promise<Mar
   // The official regional extract includes businesses mapped only by name as
   // well as nursery areas. It works even when the public Overpass API is down,
   // and does not transmit the user's location to an external map service.
-  return pakistanDirectory.elements.map(osmSupplier)
-    .filter((supplier): supplier is MarketplaceSupplier => supplier !== null);
+  return [...reviewedSuppliers, ...pakistanDirectory.elements.map(osmSupplier)
+    .filter((supplier): supplier is MarketplaceSupplier => supplier !== null)] as MarketplaceSupplier[];
 }
 
 export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promise<MarketplaceSupplier[]> {
