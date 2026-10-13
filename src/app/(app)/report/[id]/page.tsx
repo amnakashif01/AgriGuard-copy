@@ -4,6 +4,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
+const ReportCare = dynamic(() => import('@/components/crop-care/report-care'), { loading: () => <p role="status" className="text-sm text-slate-500">Loading Health & Care… Your diagnosis is ready.</p> });
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/firebase";
@@ -55,6 +58,7 @@ export default function ReportDetailPage() {
     const { toast } = useToast();
 
     const params = useParams();
+    const careParams = useSearchParams();
     const router = useRouter();
     const reportId = params.id as string;
     const { t } = useTranslation();
@@ -150,7 +154,7 @@ export default function ReportDetailPage() {
     useEffect(() => {
         if (!user || !db || !rawReport) return;
 
-        if (!isTrackedPlantReport(rawReport) || rawReport.status !== 'Complete') {
+        if (rawReport.careSeasonId || !isTrackedPlantReport(rawReport) || rawReport.status !== 'Complete') {
             setPreviousReport(null);
             return;
         }
@@ -182,7 +186,7 @@ export default function ReportDetailPage() {
 
         loadComparison();
         return () => { cancel = true; };
-    }, [user, db, rawReport?.id, rawReport?.fieldId, rawReport?.crop, rawReport?.createdAt, rawReport?.status, rawReport?.cropId, rawReport?.plantId]);
+    }, [user, db, rawReport?.id, rawReport?.fieldId, rawReport?.crop, rawReport?.createdAt, rawReport?.status, rawReport?.cropId, rawReport?.plantId, rawReport?.careSeasonId]);
 
     // Helper: fetch image URL and convert to data URI
     async function urlToDataUri(url: string) {
@@ -1040,6 +1044,7 @@ export default function ReportDetailPage() {
                     </Card>
                 </div>
             </div>
+            {rawReport?.status === 'Complete' && !/not a crop|not a plant|unknown crop|crop to be identified/i.test(rawReport.crop || 'unknown crop') && <ReportCare onLinked={(careSeasonId) => setRawReport(previous => previous && (previous.careSeasonId || "") !== careSeasonId ? {...previous, careSeasonId: careSeasonId || undefined} : previous)} reportId={rawReport.id} preferredSeasonId={careParams.get('careSeasonId') || ''} />}
             {isPlanEligible(report) && (
                 <section aria-label="Marketplace suppliers for this diagnosis">
                     <SuppliersCard />
