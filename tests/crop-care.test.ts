@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  careDay,
   cropKey,
   cropNames,
   day,
@@ -119,4 +120,10 @@ test("follow-up history is chronological and ignores voided observations", () =>
     }).success,
     false,
   );
+});
+
+test('Pakistan midnight is consistent across browser dates, server validation and report linking', () => {
+  assert.equal(careDay('2026-10-13T21:00:00Z'), '2026-10-14');
+  assert.equal(reportFitsSeason({...report, createdAt: '2026-10-13T21:00:00Z'}, {crop:'Wheat', field:'Lahore field', label:'New cycle', startedOn:'2026-10-14', status:'active'}), null);
+  assert.equal(careDay('invalid'), '');
 });
