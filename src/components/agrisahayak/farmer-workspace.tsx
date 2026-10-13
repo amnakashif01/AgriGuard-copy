@@ -1,4 +1,6 @@
 "use client";
+import dynamic from "next/dynamic";
+const CareDashboard = dynamic(() => import("@/components/crop-care/care-dashboard"), { loading: () => <p role="status">Loading Health & Care…</p> });
 import {
   useCallback,
   useEffect,
@@ -813,13 +815,14 @@ export default function FarmerWorkspace({
         "Overview",
         "Crops & plants",
         "Reports",
+        "Health & Care",
         "Progress",
         "Marketplace",
         "Community",
         "Profile",
         "Activity",
       ]
-    : ["Crops & plants", "Reports", "Care history", "Progress"];
+    : ["Crops & plants", "Reports", "Health & Care", "Care history", "Progress"];
   const reports =
     data?.reports.filter((r) =>
       `${r.crop} ${r.plantName} ${r.disease}`
@@ -1011,6 +1014,7 @@ export default function FarmerWorkspace({
           </div>
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
             <main className="min-w-0 space-y-5">
+              {tab === "Health & Care" && <CareDashboard scope={{uid, mode: owner ? "owner" : "community"}} />}
               {(tab === "Crops & plants" ||
                 tab === "Progress" ||
                 tab === "Care history") && (
