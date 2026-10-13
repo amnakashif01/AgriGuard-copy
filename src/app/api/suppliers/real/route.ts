@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadRegisteredSuppliers, searchMarketplace } from '@/lib/marketplace-search';
 import { resolveSupplierCity, validCoordinates } from '@/lib/supplier-location';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
