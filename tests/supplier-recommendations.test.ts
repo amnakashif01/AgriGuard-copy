@@ -1,12 +1,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reviewedSuppliers, recommendSuppliers } from '../src/lib/supplier-recommendations';
-import { filterMarketplaceSuppliers, loadMarketplaceDirectory } from '../src/lib/marketplace-search';
+import { reviewedSuppliers, recommendSuppliers, selectSupplierRecommendations } from '../src/lib/supplier-recommendations';
+import { filterMarketplaceSuppliers, loadMarketplaceDirectory, searchMarketplace } from '../src/lib/marketplace-search';
 import type { Supplier } from '../src/lib/models';
 
 const now = Date.parse('2026-10-13T12:00:00Z');
 const lahore = { lat: 31.558, lng: 74.3507 };
 const islamabad = { lat: 33.6844, lng: 73.0479 };
+
+test('empty 10 km seed search offers a separately labelled farther recommendation', async () => {
+  const result = await searchMarketplace(lahore, 10, 'seeds', async () => []);
+  assert.equal(result.suppliers.length, 0);
+  const selected = selectSupplierRecommendations(result.suppliers, result.fartherSuppliers, 10, [], now);
+  assert.equal(selected.expanded, true);
+  assert.deepEqual(selected.picks.map(s => s.name), ['Sky Seeds']);
+  assert.ok(selected.picks[0].distance! > 10 && selected.picks[0].distance! <= 50);
+  assert.ok(result.fartherSuppliers.every(s => s.location.city === 'Lahore'));
+});
+
+test('local picks and 50 km ranking remain unchanged; fallback respects query and distance', async () => {
+  const near = { ...reviewedSuppliers[1], distance: 2 };
+  const far = { ...reviewedSuppliers[0], distance: 20 };
+  assert.deepEqual(selectSupplierRecommendations([near], [far], 10, [], now), { picks: [near], expanded: false });
+  assert.deepEqual(selectSupplierRecommendations([far, near], [], 50, [], now).picks, recommendSuppliers([far, near], 50, [], now));
+  assert.deepEqual(selectSupplierRecommendations([], [{ ...far, distance: 51 }], 10, [], now), { picks: [], expanded: false });
+  const unmatched = await searchMarketplace(lahore, 10, 'nonexistentcrop', async () => []);
+  assert.deepEqual(unmatched.fartherSuppliers, []);
+  const fifty = await searchMarketplace(lahore, 50, '', async () => []);
+  assert.deepEqual(fifty.fartherSuppliers, []);
+});
 
 test('recommendations stay inside the selected Lahore or Islamabad radius', async () => {
   for (const [city, origin] of [['Lahore', lahore], ['Islamabad', islamabad]] as const) {

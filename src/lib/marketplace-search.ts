@@ -164,6 +164,10 @@ export async function searchMarketplace(origin: Coordinates, radiusKm: number, q
     ...(saved.status === 'rejected' ? ['Registered listings could not be loaded; showing available public listings.'] : []),
     ...(directory.status === 'rejected' ? ['Public listings could not be loaded; showing available registered listings.'] : []),
   ];
-  return { suppliers: deduplicated, countryCode, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode), warnings,
+  // Separate candidates never alter the requested radius, result count or query.
+  // Reuse the same fetched directory, including the same-country filter.
+  const fartherSuppliers = radiusKm < 50 ? filterMarketplaceSuppliers(candidates, origin, 50, query)
+    .filter(supplier => supplier.distance! > radiusKm && supplier.reviewEvidence) : [];
+  return { suppliers: deduplicated, fartherSuppliers, countryCode, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode), warnings,
     directoryUpdatedAt: countryCode === 'PK' && publicDirectory === loadMarketplaceDirectory ? pakistanDirectory.updatedAt : undefined };
 }

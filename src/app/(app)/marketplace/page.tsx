@@ -25,17 +25,16 @@ export default function MarketplacePage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold font-headline">Marketplace</h1>
-            <p className="text-muted-foreground">
-                Find local suppliers for seeds, pesticides, equipment, and more.
-            </p>
+            <div><h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Marketplace</h1>
+            <p className="mt-2 text-lg text-slate-500">Find the right supplies, closer to your farm.</p></div>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <SuppliersCard searchQuery={debouncedQuery} filterType={filterType} searchControls={<div className="flex gap-2">
                 <div className="relative flex-grow">
                     <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                        placeholder="Search for products (e.g., Fungicide)"
-                        className="h-12 rounded-xl border-2 border-emerald-200 bg-white/80 pl-10 pr-12 shadow-sm transition-colors focus-visible:border-emerald-500 focus-visible:ring-emerald-200"
+                        aria-label="Search crops or supplies"
+                        placeholder="Search crops, seeds, plants or equipment"
+                        className="h-12 rounded-xl border border-slate-200 bg-white pl-10 pr-12 transition-colors focus-visible:border-emerald-500 focus-visible:ring-emerald-200"
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                     />
@@ -53,7 +52,7 @@ export default function MarketplacePage() {
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="h-12 w-full md:w-auto min-w-[120px]">
+                        <Button variant="outline" className="h-12 shrink-0 rounded-xl border-slate-200 bg-white px-3">
                             <Filter className="mr-2 h-4 w-4" />
                             {filterType === 'all' ? 'All Types' : filterType === 'supplier' ? 'Suppliers' : filterType === 'buyer' ? 'Buyers' : 'Logistics'}
                         </Button>
@@ -67,9 +66,7 @@ export default function MarketplacePage() {
                         </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            </div>
-
-            <SuppliersCard searchQuery={debouncedQuery} filterType={filterType} />
+            </div>} />
         </div>
     );
 }

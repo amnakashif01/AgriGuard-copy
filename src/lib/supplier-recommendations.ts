@@ -63,3 +63,11 @@ export function recommendSuppliers(suppliers: Supplier[], radiusKm: number, crop
   };
   return ranked.sort((a, b) => score(b) - score(a) || a.distance! - b.distance! || a.id.localeCompare(b.id)).slice(0, 3);
 }
+
+/** Keep local picks first. Broaden only the recommendation panel when none qualify. */
+export function selectSupplierRecommendations(nearby: Supplier[], farther: Supplier[], radiusKm: number, crops: string[] = [], now = Date.now()) {
+  const local = recommendSuppliers(nearby, radiusKm, crops, now);
+  if (local.length || !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm >= 50) return { picks: local, expanded: false };
+  const picks = recommendSuppliers(farther.filter(s => s.distance! > radiusKm), 50, crops, now);
+  return { picks, expanded: picks.length > 0 };
+}
