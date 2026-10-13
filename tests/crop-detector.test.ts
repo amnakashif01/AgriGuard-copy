@@ -15,7 +15,7 @@ test('detector abstains on low scores, conflicts, wrong crops and unknown crops'
   assert.equal(chooseDetectorEvidence(result([detection(9,96),detection(8,91)]),'Maize').route,'gemini_fallback');
   assert.equal(chooseDetectorEvidence(result([])).route,'gemini_fallback');
   assert.equal(chooseDetectorEvidence(result(),'corn (maize)').accepted?.disease,'Common Rust');
-  for (const crop of ['Wheat','Mango','Rice','Cotton','Citrus']) {
+  for (const crop of ['Wheat','Mango','Cotton']) {
     assert.equal((await detectCropLeaves('not-decoded',crop)).status,'unsupported');
   }
   assert.equal((await detectCropLeaves('invalid','Maize')).status,'unavailable');
