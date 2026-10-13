@@ -1,9 +1,10 @@
 import type { Supplier } from './models';
-import { matchesSupplierQuery } from './supplier-location';
+import { distanceKm, validCoordinates, matchesSupplierQuery, type Coordinates } from './supplier-location';
 
 // Manually checked public Google Maps listings on 2026-10-13. These are dated
 // snapshots, not a live Google Places feed; no paid API, customer quotes or photos.
 const checkedAt = '2026-10-13';
+const supplierWebsites: Record<string, string> = { 'review-sky-seeds': 'https://skyseeds.pk/', 'review-awan-f8': 'https://awangarden.com.pk/', 'review-logs-lahore': 'https://logs.com.pk/', 'review-green-galaxy': 'https://greengalaxy.pk/' };
 // Official catalog photos and order pages checked on this date; availability stays with the seller.
 const featuredProducts: Record<string, NonNullable<Supplier['featuredProducts']>> = {
   "review-sky-seeds": [
@@ -35,7 +36,7 @@ const featuredProducts: Record<string, NonNullable<Supplier['featuredProducts']>
 function listing(id: string, name: string, city: string, address: string, lat: number, lng: number,
   rating: number, count: number, phone: string, products: string[], placeId: string, summary: string): Supplier {
   return { id, name, type: 'supplier', source: 'public-review',
-    ...(id === 'review-sky-seeds' ? { website: 'https://skyseeds.pk/' } : id === 'review-awan-f8' ? { website: 'https://awangarden.com.pk/' } : {}),
+    ...(supplierWebsites[id] ? { website: supplierWebsites[id] } : {}),
     location: { city, address, province: city === 'Lahore' ? 'Punjab' : 'Islamabad Capital Territory', coordinates: { lat, lng } },
     rating, products, featuredProducts: featuredProducts[id], services: [], contact: { phone }, availability: 'available',
     pricing: { competitive: false }, verification: { verified: false },
@@ -68,9 +69,16 @@ export const reviewedSuppliers: Supplier[] = [
   listing('review-makkah-nursery', 'Makkah Nursery Farm', 'Islamabad', '3 Mains Farm Road, H-9',
     33.6755839, 73.0406217, 4.3, 359, '+923005326195', ['Plants & Nursery Supplies'], 'ChIJjwyh19e_3zgRFXFGqm2FtiM',
     'A local plant nursery with an established customer-review history.'),
+  listing('review-logs-lahore', 'Lahore Online Gardening Shop', 'Lahore', '349 Lower Mall, Rewaz Garden',
+    31.5572971, 74.3042843, 4.8, 78, '+923214343191', ['Pesticides', 'Fungicides', 'Sprayers', 'Garden Tools'], '',
+    'An online and local supplier of pesticides, fungicides and spraying equipment. Reviews highlight range and helpful service.'),
+  listing('review-green-galaxy', 'Green Galaxy', 'Lahore', '477-G3 Block, Johar Town',
+    31.4707263, 74.2734025, 4.9, 39, '+923238786378', ['Pesticides', 'Plant Protection', 'Neem Oil', 'Sprayers'], 'ChIJV8OgMa4DGTkR8j4oI4fKZKk',
+    'Plant-protection and neem-oil products with online ordering. Customers highlight helpful advice and quality supplies.'),
 ];
 
 // Product categories checked against https://skyseeds.pk/product-category/pesticides/plant-protection/
+// https://logs.com.pk/product-category/pesticides/, https://greengalaxy.pk/products/neem-oil
 // and https://awangarden.com.pk/ on 2026-10-13; these are not live stock guarantees.
 export function isCropProtectionSupplier(supplier: Supplier): boolean {
   return supplier.products.some(product => /\b(pesticides?|insecticides?|fungicides?|herbicides?|agrochemicals?|crop protection|plant protection)\b/i.test(product));
@@ -105,4 +113,23 @@ export function selectSupplierRecommendations(nearby: Supplier[], farther: Suppl
   if (local.length || !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm >= 50) return { picks: local, expanded: false };
   const picks = recommendSuppliers(farther.filter(s => s.distance! > radiusKm), 50, crops, now);
   return { picks, expanded: picks.length > 0 };
+}
+
+
+/** City feature is separate from the strict nearby list and its selected radius.
+ * Saved cities are resolved by the API. GPS-only origins use the supported city
+ * area (50 km from its centre), never a stale profile city or another country. */
+export function featuredSupplierForLocation(origin: Coordinates & { city?: string; countryCode?: string }, query = ''): Supplier | null {
+  if (!validCoordinates(origin) || origin.countryCode !== 'PK') return null;
+  const cities = [
+    { name: 'Lahore', lat: 31.558, lng: 74.3507, id: 'review-sky-seeds' },
+    { name: 'Islamabad', lat: 33.6844, lng: 73.0479, id: 'review-awan-f8' },
+  ];
+  const label = (origin.city || '').split(',')[0].trim().toLowerCase();
+  const knownCity = label && !['current location', 'saved location'].includes(label);
+  const city = knownCity ? cities.find(c => c.name.toLowerCase() === label)
+    : cities.filter(c => distanceKm(origin, c) <= 50).sort((a, b) => distanceKm(origin, a) - distanceKm(origin, b))[0];
+  const supplier = city && reviewedSuppliers.find(s => s.id === city.id);
+  if (!supplier || !matchesSupplierQuery(supplier, query)) return null;
+  return { ...supplier, distance: distanceKm(origin, supplier.location.coordinates) };
 }
