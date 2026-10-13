@@ -4,7 +4,7 @@ import React, {useId, useState} from 'react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {CheckCircle2, ChevronDown, LayoutGrid, Network, ScanSearch, Sparkles, type LucideIcon} from 'lucide-react';
-import {diagnosisModelName, DETECTOR_MIN_SCORE, type CropEvidence} from '@/lib/crop-detector';
+import {diagnosisModelName, detectorDisplayName, DETECTOR_MIN_SCORE, type CropEvidence} from '@/lib/crop-detector';
 
 type ModelCardProps = {
   name: string;
@@ -42,6 +42,7 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
   const detailsId = useId();
   const accepted = evidence.route === 'model_assisted' ? evidence.accepted : undefined;
   const davitAccepted = Boolean(accepted && diagnosisModelName(evidence) === 'DaViT-Base');
+  const yoloName = detectorDisplayName(evidence.detector);
   const yoloCompleted = evidence.detector.status === 'detected';
   const davitCompleted = evidence.classifier?.status === 'classified' && Boolean(evidence.classifier.prediction);
   const score = accepted && Number.isFinite(accepted.score) && accepted.score >= DETECTOR_MIN_SCORE && accepted.score <= 100 ? accepted.score : undefined;
@@ -58,7 +59,7 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
     </CardHeader>
     <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
       <div className="grid gap-4 lg:grid-cols-2">
-        <ModelCard name="YOLO11m" description="Leaf detection & disease screening" icon={ScanSearch} completed={yoloCompleted}
+        <ModelCard name={yoloName} description="Crop detection & disease screening" icon={ScanSearch} completed={yoloCompleted}
           status={yoloCompleted ? 'Analysis completed' : evidence.detector.status === 'unsupported' ? 'Not applicable to this crop' : 'Not available for this report'}
           score={yoloCompleted && !davitAccepted ? score : undefined}/>
         <ModelCard name="DaViT" variant="Base" description="Crop & condition classification" icon={Network} completed={davitCompleted}
@@ -77,17 +78,17 @@ export default function CropModelEvidence({evidence, imageUrl}: {evidence:CropEv
         <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`}/>
       </button>
       <div id={detailsId} hidden={!expanded} className="mt-2 space-y-3 border-t border-emerald-100 pt-4 text-sm leading-relaxed text-slate-600 dark:border-emerald-900 dark:text-slate-300">
-        <p><strong>YOLO11m:</strong> Leaf detection and disease screening across 29 PlantDoc leaf categories.{yoloCompleted && ` Processing time: ${(evidence.detector.elapsedMs / 1000).toFixed(2)} s.`}</p>
+        <p><strong>{yoloName}:</strong> {yoloName === 'YOLO11x' ? 'Crop and disease screening across 116 trained categories.' : 'Leaf detection and disease screening across 29 PlantDoc leaf categories.'}{yoloCompleted && ` Processing time: ${(evidence.detector.elapsedMs / 1000).toFixed(2)} s.`}</p>
         <p><strong>DaViT-Base:</strong> Crop, disease and pest classification.{davitCompleted && evidence.classifier && ` Processing time: ${(evidence.classifier.elapsedMs / 1000).toFixed(2)} s.`}{!evidence.classifier && (accepted ? ' The YOLO result was accepted first, so this model was not run.' : 'No result from this model was recorded for this report.')}</p>
-        {score !== undefined && <p>{davitAccepted ? 'DaViT' : 'YOLO11m'} supplied the accepted crop and condition. Model score is not measured accuracy.</p>}
+        {score !== undefined && <p>{davitAccepted ? 'DaViT' : yoloName} supplied the accepted crop and condition. Model score is not measured accuracy.</p>}
         {davitAccepted && evidence.classifier?.prediction && <p>Crop score: {evidence.classifier.prediction.crop.score.toFixed(2)}% · Category score: {evidence.classifier.prediction.category.score.toFixed(2)}% · Condition score: {evidence.classifier.prediction.condition.score.toFixed(2)}%. The displayed model score is the lowest of these three checks.</p>}
         <p>Severity and image highlights are Gemini visual estimates. Completed checks indicate that a model ran; the report above contains the final image assessment.</p>
         {expanded && imageUrl && regions.length > 0 && <>
-          <p>Green boxes show detected leaves, not the diseased area.</p>
+          <p>Green boxes show model detection regions, not measured disease area.</p>
           <div className="relative mx-auto max-w-xl overflow-hidden rounded-lg">
             {/* Native image dimensions keep normalized overlays aligned without cropping. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="Crop photo with model-detected leaf regions" className="block h-auto w-full"/>
+            <img src={imageUrl} alt="Crop photo with model detection regions" className="block h-auto w-full"/>
             {regions.map((r,i) => <div key={i} aria-hidden="true" className="pointer-events-none absolute border-2 border-emerald-500" style={{top:`${r.box[0]/10}%`,left:`${r.box[1]/10}%`,height:`${(r.box[2]-r.box[0])/10}%`,width:`${(r.box[3]-r.box[1])/10}%`}}/>)}
           </div>
         </>}
