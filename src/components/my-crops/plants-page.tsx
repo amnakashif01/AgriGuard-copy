@@ -13,6 +13,7 @@ export function PlantsPage({ cropId }: { cropId: string }) {
   const loading = cropState.loading || plants.loading;
   const error = cropState.error || plants.error;
   return <CropFrame title={crop?.name || 'Your crop'} eyebrow="MY CROPS" subtitle={crop ? `${plants.data.length} ${plants.data.length === 1 ? 'plant' : 'plants'} · A health history for every plant.` : undefined} back={{ href: '/my-crops', label: 'My Crops' }}>
+    <div className="mb-5 flex flex-wrap gap-3"><Button variant="outline" asChild><Link href={`/my-crops/health?crop=${encodeURIComponent(crop?.name || '')}&cropId=${cropId}`}>Health & Care · Seasons</Link></Button></div>
     <LoadState loading={loading} error={error} missing={!loading && !crop} />
     {!loading && !error && crop && <div className="space-y-5">
       {plants.data.length === 0 && <div className="rounded-3xl border border-emerald-100 bg-white p-10 text-center"><Sprout className="mx-auto mb-4 h-10 w-10 text-emerald-600" /><h2 className="text-xl font-semibold text-emerald-950">Add your first plant</h2><p className="mt-3 text-sm leading-6 text-slate-500">Give it a unique name and take a photo to start its health timeline.</p></div>}

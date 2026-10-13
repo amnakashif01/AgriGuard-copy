@@ -61,6 +61,8 @@ export default function NewReportForm() {
     useEffect(() => {
         const fieldIdParam = searchParams.get('fieldId');
         if (fieldIdParam) setSelectedField(fieldIdParam);
+        const cropParam = searchParams.get('crop');
+        if (cropParam) setSelectedCrop(cropParam);
     }, [searchParams]);
 
     // Added state for simulated progress
@@ -242,7 +244,8 @@ export default function NewReportForm() {
 
             window.dispatchEvent(new Event('reportCreated'));
             // Redirect to the actual report page which has the full UI including Trend Analysis!
-            router.push(`/report/${reportId}`);
+            const careSeasonId = searchParams.get('careSeasonId');
+            router.push(`/report/${reportId}${careSeasonId ? '?careSeasonId=' + encodeURIComponent(careSeasonId) : ''}`);
 
         } catch (error: any) {
             console.error("Report generation error:", error);
@@ -542,6 +545,8 @@ export default function NewReportForm() {
                                             <SelectItem value="Apple">Apple</SelectItem>
                                             <SelectItem value="Mango">Mango</SelectItem>
                                             <SelectItem value="Citrus">Citrus (Kinnow)</SelectItem>
+                                            <SelectItem value="Tomato">Tomato</SelectItem>
+                                            <SelectItem value="Potato">Potato</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-gray-500">

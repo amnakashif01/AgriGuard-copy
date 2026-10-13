@@ -1,5 +1,5 @@
 import { getAuth } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, query, orderBy, limit, where, serverTimestamp, getDocFromCache, addDoc, getCountFromServer, arrayUnion, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, query, orderBy, limit, where, serverTimestamp, getDocFromCache, addDoc, getCountFromServer, arrayUnion, writeBatch, runTransaction } from 'firebase/firestore';
 import { getDb, getApp } from './firestore';
 import type { UserProfile, DiagnosisReport, AdminLog, Supplier, ReportHistoryEntry } from './models';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -181,10 +181,14 @@ export async function deleteReport(uid: string, reportId: string): Promise<void>
         await deletePlantRecord(uid, report.cropId, report.plantId, reportId, db);
         return;
     }
-    const batch = writeBatch(db);
-    batch.delete(ref);
-    batch.delete(doc(db, 'users', uid, 'notifications', `diagnosis_${reportId}`));
-    await writeWithTimeout(batch.commit(), 'Report deletion');
+    await writeWithTimeout(runTransaction(db, async transaction => {
+        const current = (await transaction.get(ref)).data();
+        if (current?.careSeasonId) transaction.set(doc(db, 'users', uid, 'careDeletionJobs', reportId), { seasonId: current.careSeasonId });
+        transaction.delete(ref);
+        transaction.delete(doc(db, 'users', uid, 'notifications', `diagnosis_${reportId}`));
+    }), 'Report deletion');
+    const { cleanDeletedReportCare } = await import('./crop-care/delete-linked');
+    await cleanDeletedReportCare(db, uid, reportId);
 }
 
 

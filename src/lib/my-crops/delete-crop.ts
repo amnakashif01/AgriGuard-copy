@@ -40,5 +40,11 @@ export async function deleteCrop(uid: string, crop: Pick<MyCrop, 'id' | 'created
     }
   }
   if (!await removePages(query(collection(db, 'users', uid, 'reports'), where('cropId', '==', crop.id)), true)) return;
+  const seasons = await getDocs(query(collection(db, 'users', uid, 'careSeasons'), where('cropId', '==', crop.id)));
+  for (const season of seasons.docs) {
+    if (!await removePages(collection(season.ref, 'events'))) return;
+    if (!await removePages(collection(season.ref, 'images'))) return;
+    if (!await remove([season.ref])) return;
+  }
   await remove([cropRef]);
 }

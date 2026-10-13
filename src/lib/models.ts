@@ -128,6 +128,8 @@ export type DiagnosisReport = {
     reasoning: string;
   };
   expertReviewRequired?: boolean;
+  /** Explicit growing-cycle link; never inferred from capture year. */
+  careSeasonId?: string;
   fieldId?: string;
   cropId?: string;
   plantId?: string;
