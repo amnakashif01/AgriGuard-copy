@@ -91,10 +91,11 @@ test('API resolves Islamabad even with an incorrect province and stale Lahore co
       { name: 'Islamabad', latitude: 34, longitude: 70, country_code: 'AF', population: 9000000 },
       { name: 'Islamabad', latitude: 33.7215, longitude: 73.0433, country_code: 'PK', admin1: 'Islamabad Capital Territory' },
     ] });
-    assert.match(decodeURIComponent(String(options?.body)), /around:10000,33.7215,73.0433/);
+    assert.match(decodeURIComponent(String(options?.body)), /ISO3166-1.*PK/);
+    assert.ok(!String(options?.body).includes('33.7215'), 'exact location stays inside the app');
     return Response.json({ elements: [
-      { id: 1, lat: 33.7215, lon: 73.0433, tags: { name: 'Nearby seeds' } },
-      { id: 2, lat: 31.5497, lon: 74.3436, tags: { name: 'Lahore seeds' } },
+      { type: 'node', id: 1, lat: 33.7215, lon: 73.0433, tags: { name: 'Nearby seeds', shop: 'agrarian' } },
+      { type: 'node', id: 2, lat: 31.5497, lon: 74.3436, tags: { name: 'Lahore seeds', shop: 'agrarian' } },
     ] });
   };
   const response = await GET(req('source=osm&location=Islamabad%2C%20Punjab&lat=31.52&lng=74.35&radius=10000'));
