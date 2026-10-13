@@ -297,7 +297,7 @@ export default function ReportCare({
         setStepIndex(0);
         if (c.season) {
           const entries = await api<CarePage<CareEvent>>(
-            { resource: "events", seasonId: c.season.id, reportId },
+            { resource: "events", seasonId: c.season.id },
             undefined,
             controller.signal,
           );
@@ -381,6 +381,7 @@ export default function ReportCare({
     step = report.plan?.steps[stepIndex],
     planned = events.items.some(
       (e) =>
+        e.reportId === report.id &&
         e.kind === "planned" &&
         !e.voidedAt &&
         e.suggestion?.title === step?.title,
@@ -455,7 +456,7 @@ export default function ReportCare({
                       Open Health & Care record
                     </Link>
                   </Button>
-                  {!events.items.length && (
+                  {!events.items.some(e => e.reportId === report.id) && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -734,6 +735,7 @@ export default function ReportCare({
         </div>
         {season && (
           <div className="space-y-3">
+            <p className="text-sm text-slate-600">Care recorded throughout this season, including earlier diagnoses. These are your saved actions and observations.</p>
             <CareTimeline
               key={report.id + ":" + revision}
               events={events.items}
@@ -752,7 +754,6 @@ export default function ReportCare({
                     const next = await api<CarePage<CareEvent>>({
                       resource: "events",
                       seasonId: season.id,
-                      reportId: report.id,
                       cursor: events.nextCursor!,
                     });
                     setEvents({
