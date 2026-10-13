@@ -143,3 +143,18 @@ export function comparePlantRecords(previous: PlantRecord, current: PlantRecord)
     },
   };
 }
+
+/** Compare only explicitly linked checks of one plant in one crop cycle. */
+export function recordsInCareSeason(
+  records: PlantRecord[],
+  reports: { id: string; careSeasonId: string; cropId: string; plantId: string }[],
+  seasonId: string,
+  cropId: string,
+  plantId: string,
+): PlantRecord[] {
+  if (!seasonId || !cropId || !plantId) return [];
+  const ids = new Set(reports.filter(report =>
+    report.careSeasonId === seasonId && report.cropId === cropId && report.plantId === plantId
+  ).map(report => report.id));
+  return records.filter(record => record.cropId === cropId && record.plantId === plantId && ids.has(record.reportId));
+}
