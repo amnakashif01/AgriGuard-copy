@@ -13,7 +13,7 @@ import { useAuth } from "@/firebase";
 import { getProfile } from "@/lib/repositories";
 import { nearbySuppliers, supplierLocationParams, validCoordinates, getCurrentSupplierLocation, DEFAULT_SUPPLIER_RADIUS_KM, type Coordinates } from "@/lib/supplier-location";
 
-import { selectSupplierRecommendations } from "@/lib/supplier-recommendations";
+import { isCropProtectionSupplier, selectSupplierRecommendations } from "@/lib/supplier-recommendations";
 
 export default function SuppliersCard({ searchQuery = '', filterType = 'all', searchControls }: { searchQuery?: string; filterType?: string; searchControls?: ReactNode }) {
     const { user } = useAuth();
@@ -197,7 +197,7 @@ export function RecommendedSupplierCard({ supplier, first, outsideRadius = false
     const phone = supplier.contact.phone.replace(/[^+0-9]/g, '');
     return <article className={`flex min-w-0 flex-col rounded-xl border bg-white p-4 ${first ? 'border-2 border-emerald-600' : 'border-emerald-100'}`}>
         <div className="mb-3 flex min-h-8 flex-wrap items-center justify-between gap-2">
-            {first ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-900"><Star className="h-3.5 w-3.5 fill-current" />Strong customer feedback</span> : <span />}
+            {first ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-900"><Star className="h-3.5 w-3.5 fill-current" />{isCropProtectionSupplier(supplier) ? 'Crop protection pick' : 'Strong customer feedback'}</span> : <span />}
             <span className={`ms-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${outsideRadius ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-700'}`}><MapPin className="h-3.5 w-3.5" />{supplier.distance!.toFixed(1)} km away{outsideRadius ? ' · Outside radius' : ''}</span>
         </div>
         <div className="flex items-start gap-3"><span className="rounded-full bg-slate-50 p-3"><Store className="h-7 w-7 text-emerald-800" /></span><div className="min-w-0 flex-1"><h3 className="text-lg font-bold leading-6 tracking-tight text-slate-950">{supplier.name}</h3><p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-slate-500"><MapPin className="mt-1 h-3.5 w-3.5 shrink-0" />{supplier.location.address}, {supplier.location.city}</p>
@@ -205,12 +205,21 @@ export function RecommendedSupplierCard({ supplier, first, outsideRadius = false
             <p className="mt-1 text-xs text-slate-500">Google Maps · Checked {evidence.checkedAt}</p>
         </div></div>
         <div className="mt-4 flex flex-wrap gap-2">{supplier.products.slice(0, 2).map(product => <span key={product} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">{product}</span>)}</div>
+        {supplier.featuredProducts?.length ? <section className="mt-4" aria-label={`Crop-care products from ${supplier.name}`}>
+            <h4 className="mb-2 text-sm font-semibold text-slate-900">Explore crop-care products</h4>
+            <div className="grid grid-cols-2 gap-2">{supplier.featuredProducts.slice(0, 2).map(product => <a key={product.url} href={product.url} target="_blank" rel="noopener noreferrer" className="group overflow-hidden rounded-lg border border-emerald-100 bg-white transition-colors hover:border-emerald-600 focus-visible:outline-2 focus-visible:outline-emerald-700">
+                <div className="flex h-32 items-center justify-center bg-slate-50 p-2"><img src={product.image} alt={product.name} width={160} height={128} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-contain" onError={event => { event.currentTarget.style.visibility = 'hidden'; }} /></div>
+                <div className="p-2"><p className="min-h-10 text-xs font-semibold leading-5 text-slate-900">{product.name}</p><span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800">View &amp; order <ArrowRight className="h-3 w-3" /></span></div>
+            </a>)}</div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">Photos from shop website. Check current price, stock and crop suitability with the seller. Orders open on their website.</p>
+        </section> : null}
         <div className="mt-4 flex-1" />
         <div className="mb-3 rounded-lg bg-emerald-50 p-3"><h4 className="flex items-center gap-2 text-sm font-semibold text-emerald-900"><Leaf className="h-4 w-4" />Why this pick</h4><p className="mt-1 min-h-[4.5rem] text-sm leading-6 text-slate-600">{evidence.summary}</p></div>
         <div className="grid grid-cols-2 gap-2">
             {phone.length >= 7 ? <Button asChild className="h-11 w-full rounded-lg bg-emerald-800 px-2 hover:bg-emerald-900"><a href={`tel:${phone}`}><Phone className="me-1.5 h-4 w-4" />Call shop</a></Button> : <Button disabled className="h-11 w-full rounded-lg bg-slate-100 px-2 text-xs text-slate-500 disabled:opacity-100">Phone not listed</Button>}
             <Button asChild variant="outline" className="h-11 w-full rounded-lg border-emerald-800 px-2 text-emerald-900"><a href={directions} target="_blank" rel="noopener noreferrer"><Map className="me-1.5 h-4 w-4" />Directions</a></Button>
         </div>
+        {supplier.website && /^https:\/\//i.test(supplier.website) && <a href={supplier.website} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-emerald-800 px-3 text-sm font-semibold text-emerald-900">Visit website <ArrowRight className="h-4 w-4" /></a>}
         <a href={evidence.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-8 items-center gap-2 text-sm font-semibold text-emerald-800 underline underline-offset-2">Read reviews <ArrowRight className="h-4 w-4" /></a>
     </article>;
 }
