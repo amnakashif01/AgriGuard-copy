@@ -27,6 +27,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
     const [locating, setLocating] = useState(false);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [warnings, setWarnings] = useState<string[]>([]);
+    const [directoryUpdatedAt, setDirectoryUpdatedAt] = useState<string | null>(null);
     const locationRequest = useRef(0);
 
     useEffect(() => {
@@ -88,6 +89,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
         setSuppliers([]);
         setLocationLabel('');
         setWarnings([]);
+        setDirectoryUpdatedAt(null);
         params.set('radius', String(radiusKm * 1000));
         params.set('query', searchQuery.trim());
         const search = async () => {
@@ -106,6 +108,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 setSuppliers(nearbySuppliers(data.suppliers, data.location, radiusKm));
                 setLocationLabel(data.location.city || 'Saved location');
                 setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+                setDirectoryUpdatedAt(typeof data.directoryUpdatedAt === 'string' ? data.directoryUpdatedAt : null);
             } catch (cause) {
                 if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Unable to find nearby suppliers.');
             } finally {
@@ -159,7 +162,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
                 : !hasLocation ? <div className="py-8 text-center"><p className="mb-4 text-slate-600">Use My Location above, or save your city to see suppliers near you.</p><Button asChild><Link href="/profile">Set my location</Link></Button></div>
                 : visibleSuppliers.length ? <div className="grid gap-4">{visibleSuppliers.map((supplier, index) => <SupplierCard key={supplier.id} supplier={supplier} index={index} />)}</div>
                 : <div className="py-10 text-center"><Truck className="mx-auto mb-4 h-10 w-10 text-slate-400" /><p className="text-lg text-slate-600">No matching suppliers within {radiusKm} km of your location.</p><p className="mt-2 text-sm text-slate-500">{radiusKm < 50 ? 'Choose a larger distance above, change the search, or update your location.' : 'Try another crop or product, or check your selected location.'}</p></div>}
-                {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>. Contact the supplier to confirm stock and services.</p>}
+                {!busy && <p className="text-xs text-slate-500">Registered AgriGuard listings and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap contributors</a>{directoryUpdatedAt ? ` · Map directory updated ${directoryUpdatedAt}` : ''}. Contact the supplier to confirm stock and services.</p>}
             </CardContent>
         </Card>
     );
