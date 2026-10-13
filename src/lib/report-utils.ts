@@ -94,6 +94,7 @@ export function findPreviousReport(
             && candidate.fieldId === current.fieldId
             && candidate.plantId === current.plantId
             && candidate.cropId === current.cropId
+            && (candidate.careSeasonId || '') === (current.careSeasonId || '')
             && normalizeLabel(candidate.crop) === currentCrop
             && timestampToMillis(candidate.createdAt) < currentTime)
         .sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt))[0] || null;
