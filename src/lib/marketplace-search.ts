@@ -32,13 +32,10 @@ export function filterMarketplaceSuppliers(suppliers: Supplier[], origin: Coordi
 
 type OSMElement = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
 
-const agriculturalNames = 'seed|fertili[sz]er|pesticide|fungicide|agro|agricultur|nurser(y|ies)|irrigation|tractor|زرعی|کھاد|بیج|نرسری';
 const supplierSelectors = [
   '["shop"~"^(agrarian|agriculture|agro|agricultural_supplies|agricultural_machinery|seed|seeds|farm|garden_centre|garden_machinery|tractor)$"]',
   '["landuse"="plant_nursery"]["name"]',
   '["trade"~"agricultur|irrigation",i]',
-  '["craft"="agricultural_engines"]',
-  `["shop"~"^(yes|florist|hardware|wholesale|country_store)$"]["name"~"${agriculturalNames}",i]`,
 ];
 const productLabels: Record<string, string> = {
   seed: 'Seeds', seeds: 'Seeds', fertilizer: 'Fertilizers', fertiliser: 'Fertilizers',
@@ -95,12 +92,20 @@ export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promis
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'AgriGuard/1.0 (agricultural supplier directory)' },
         signal: AbortSignal.timeout(deadline), next: { revalidate: 900 },
       });
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.warn('[marketplace] Directory HTTP failure', { provider: new URL(endpoint).hostname, status: response.status });
+        continue;
+      }
       const data = await response.json();
-      if (!Array.isArray(data.elements) || data.remark) continue;
+      if (!Array.isArray(data.elements) || data.remark) {
+        console.warn('[marketplace] Directory query incomplete', { provider: new URL(endpoint).hostname });
+        continue;
+      }
       return data.elements.map(osmSupplier).filter((supplier: MarketplaceSupplier | null): supplier is MarketplaceSupplier =>
         supplier !== null && countryAt(supplier.location.coordinates) === country);
-    } catch { /* Try the second public mirror when this one is unavailable. */ }
+    } catch (error) {
+      console.warn('[marketplace] Directory transport failure', { provider: new URL(endpoint).hostname, reason: error instanceof Error ? error.name : 'UnknownError' });
+    }
   }
   throw new Error('Public supplier search is temporarily unavailable. Please try again.');
 }
