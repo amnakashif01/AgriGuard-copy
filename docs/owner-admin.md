@@ -76,3 +76,21 @@ passed. Full model packaging could not be rerun locally because the environment
 blocked the pinned Python dependency download from pypi.org; the existing model
 export/build scripts are unchanged. A live owner login and browser management
 check still require the server credential and role bootstrap described above.
+
+## Complete farmer workspaces (October 2026)
+
+The owner directory now opens a full-width account workspace. Owners can inspect crops, plants and scans, open full reports including treatment/protection plans and report revisions, edit crop/plant details, diagnosis and care/progress notes, and saved care plans. Owner profile settings include crop interests, language and notification preferences. The workspace also exposes saved fields, marketplace listings, supplier contact history, reviews, notifications and account activity. Saved marketplace/field/contact/review/notification records can be edited or deleted; audit logs are retained. Suspend/restore and typed-confirmation account deletion remain owner-only.
+
+All workspace reads/mutations use the existing server-verified owner identity and claims. Record writes validate versions and ownership; report deletion maintains plant history/count/latest pointers, and plant deletion removes linked reports. Crop and account deletion retain their existing descendant cleanup. No impersonation login or password access is introduced.
+
+### Farmer community
+
+Inside Admin, one “Share my information” switch grants read-only access to the farmer's name/city, crops, plants, images, full report content, care history and progress. It does not share profile contact fields, precise location, account preferences, marketplace records or raw logs. Comparisons select scans from the same plant; the UI distinguishes saved diagnoses/progress from independently verified improvement.
+
+`community_profiles/{uid}` now requires `enabled: true` AND `sharingVersion: 2`. Previous per-report consent is intentionally insufficient: users choose the new switch to opt in. OFF immediately blocks new profile and nested report/plant requests. Users can browse consenting farmers while their own sharing is OFF. Ordinary users cannot submit writes for another UID, and the owner can hide a shared profile but cannot opt a farmer in.
+
+Images are paginated separately from metadata. Remote report images are resolved only from that farmer's own configured Firebase Storage path; permanent storage tokens and arbitrary URLs are never sent through shared reports. Community data is projected through a field allowlist, and every nested read rechecks consent after loading. Responses use private/no-store caching. Open views refresh permission every minute.
+
+### Validation
+
+`npm run typecheck`; `npm test`; and the Firebase emulator integration test cover owner vs farmer access, legacy consent, immediate sharing revocation, private-field omission, stale write rejection, plant/report changes and deletion, ownership checks, account suspension/deletion, and Firestore client isolation. Existing owner and community data are not made public during deployment.

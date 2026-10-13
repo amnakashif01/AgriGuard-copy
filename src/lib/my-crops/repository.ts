@@ -46,6 +46,7 @@ export async function startPlantRecord(uid: string, cropId: string, input: Start
     if (cropSnapshot.data().deletingAt) throw new Error('This crop is being deleted. Return to My Crops.');
     if (!input.plantId && plantSnapshot.exists()) throw new Error('This plant name is already in use. Please choose another name.');
     if (input.plantId && !plantSnapshot.exists()) throw new Error('This plant no longer exists. Return to your crop.');
+    if (plantSnapshot.data()?.deletingAt) throw new Error('This plant is being deleted. Return to your crop.');
     const crop = cropSnapshot.data() as MyCrop;
     const plant = plantSnapshot.data() as MyPlant | undefined;
     const now = new Date().toISOString();
@@ -91,6 +92,7 @@ export async function finishPlantRecord(uid: string, cropId: string, plantId: st
   await runTransaction(db, async transaction => {
     const [record, plant, crop] = await Promise.all([transaction.get(recordRef), transaction.get(plantRef), transaction.get(cropRef)]);
     if (!crop.exists() || crop.data().deletingAt) throw new Error('This crop has been deleted or is being deleted.');
+    if (plant.data()?.deletingAt) throw new Error('This plant is being deleted.');
     if (!record.exists() || !plant.exists()) throw new Error('The saved plant record could not be found.');
     if (record.data().status === 'Complete') return; // Completed history is immutable through this flow.
     const now = new Date().toISOString();

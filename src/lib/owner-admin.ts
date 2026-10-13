@@ -1,39 +1,271 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export const OWNER_EMAIL = 'admin.agriguard@gmail.com';
+export const OWNER_EMAIL = "admin.agriguard@gmail.com";
 export const PRESENCE_WINDOW_MS = 120_000;
-export function hasOwnerRole(claims: { owner?: unknown; admin?: unknown; email?: unknown }) {
-  return claims.owner === true && claims.admin === true && typeof claims.email === 'string' && claims.email.toLowerCase() === OWNER_EMAIL;
+export function hasOwnerRole(claims: {
+  owner?: unknown;
+  admin?: unknown;
+  email?: unknown;
+}) {
+  return (
+    claims.owner === true &&
+    claims.admin === true &&
+    typeof claims.email === "string" &&
+    claims.email.toLowerCase() === OWNER_EMAIL
+  );
 }
 export function isRecentlyActive(lastSeenAt: string | null, now = Date.now()) {
   const time = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
-  return Number.isFinite(time) && time <= now && now - time < PRESENCE_WINDOW_MS;
+  return (
+    Number.isFinite(time) && time <= now && now - time < PRESENCE_WINDOW_MS
+  );
 }
-const id = z.string().min(1).max(128).refine(value => !/[\/\u0000-\u001f]/.test(value) && value !== '.' && value !== '..', 'Invalid record identifier.');
-const shortText = (max: number, min = 0) => z.string().trim().min(min).max(max).refine(value => !/[\u0000-\u001f]/.test(value), 'Invalid text.');
+const id = z
+  .string()
+  .min(1)
+  .max(128)
+  .refine(
+    (value) =>
+      !/[\/\u0000-\u001f]/.test(value) && value !== "." && value !== "..",
+    "Invalid record identifier.",
+  );
+const shortText = (max: number, min = 0) =>
+  z
+    .string()
+    .trim()
+    .min(min)
+    .max(max)
+    .refine((value) => !/[\u0000-\u001f]/.test(value), "Invalid text.");
 const version = z.string().min(1).max(80);
 const target = { uid: id };
-export const ownerActionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('profile.update'), ...target, version, name: shortText(80, 1), location: shortText(160) }).strict(),
-  z.object({ action: z.literal('crop.update'), ...target, cropId: id, version, name: shortText(64, 1), notes: z.string().trim().max(1500) }).strict(),
-  z.object({ action: z.literal('crop.delete'), ...target, cropId: id, version, confirmation: shortText(64, 1) }).strict(),
-  z.object({ action: z.literal('account.suspend'), ...target }).strict(),
-  z.object({ action: z.literal('account.restore'), ...target }).strict(),
-  z.object({ action: z.literal('account.delete'), ...target, confirmation: z.string().max(254) }).strict(),
+export const ownerActionSchema = z.discriminatedUnion("action", [
+  z
+    .object({
+      action: z.literal("profile.update"),
+      ...target,
+      version,
+      name: shortText(80, 1),
+      location: shortText(160),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("crop.update"),
+      ...target,
+      cropId: id,
+      version,
+      name: shortText(64, 1),
+      notes: z.string().trim().max(1500),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("crop.delete"),
+      ...target,
+      cropId: id,
+      version,
+      confirmation: shortText(64, 1),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("plant.update"),
+      ...target,
+      cropId: id,
+      plantId: id,
+      version,
+      name: shortText(64, 1),
+      age: shortText(80),
+      notes: z.string().trim().max(2000),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("plant.delete"),
+      ...target,
+      cropId: id,
+      plantId: id,
+      version,
+      confirmation: shortText(64, 1),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("report.update"),
+      ...target,
+      reportId: id,
+      version,
+      disease: shortText(150, 1),
+      description: z.string().trim().max(6000),
+      symptoms: z.string().trim().max(2000),
+      severity: z.enum(["None", "Low", "Medium", "High"]),
+      careNotes: z.string().trim().max(4000),
+      progress: z.enum([
+        "Not recorded",
+        "Treatment ongoing",
+        "Improved",
+        "Unchanged",
+        "Worse",
+        "Resolved",
+      ]),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("plan.update"),
+      ...target,
+      reportId: id,
+      version,
+      plan: z
+        .object({
+          timeline: shortText(300),
+          totalCost: z.number().min(0).max(100000000),
+          steps: z
+            .array(
+              z
+                .object({
+                  title: shortText(200, 1),
+                  description: z.string().max(6000),
+                  timing: shortText(500),
+                  materials: z.array(shortText(2000)).max(50),
+                  cost: z.number().min(0).max(100000000),
+                  safetyNotes: z.string().max(2000),
+                })
+                .strict(),
+            )
+            .max(40),
+          preventionTips: z.array(z.string().max(2000)).max(50),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("report.delete"),
+      ...target,
+      reportId: id,
+      version,
+      confirmation: shortText(150, 1),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("preferences.update"),
+      ...target,
+      version,
+      language: z.enum(["english", "urdu"]),
+      crops: z.array(shortText(64)).max(30),
+      weatherAlerts: z.boolean(),
+      priceUpdates: z.boolean(),
+      treatmentReminders: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("record.update"),
+      ...target,
+      resource: z.enum([
+        "fields",
+        "marketplace",
+        "contacts",
+        "ratings",
+        "notifications",
+      ]),
+      recordId: id,
+      version,
+      values: z
+        .record(
+          z.union([z.string().max(4000), z.number().finite(), z.boolean()]),
+        )
+        .refine((value) => Object.keys(value).length <= 15),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("record.delete"),
+      ...target,
+      resource: z.enum([
+        "fields",
+        "marketplace",
+        "contacts",
+        "ratings",
+        "notifications",
+      ]),
+      recordId: id,
+      version,
+      confirmation: z.literal("DELETE"),
+    })
+    .strict(),
+  z.object({ action: z.literal("community.hide"), ...target }).strict(),
+  z.object({ action: z.literal("account.suspend"), ...target }).strict(),
+  z.object({ action: z.literal("account.restore"), ...target }).strict(),
+  z
+    .object({
+      action: z.literal("account.delete"),
+      ...target,
+      confirmation: z.string().max(254),
+    })
+    .strict(),
 ]);
 export const ownerIdSchema = id;
 export type OwnerAction = z.infer<typeof ownerActionSchema>;
 export type Farmer = {
-  uid: string; name: string; email: string; phone: string; location: string;
-  createdAt: string | null; lastSignInAt: string | null; lastSeenAt: string | null;
-  online: boolean; disabled: boolean; protected: boolean; cropCount: number; reportCount: number;
+  uid: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  createdAt: string | null;
+  lastSignInAt: string | null;
+  lastSeenAt: string | null;
+  online: boolean;
+  disabled: boolean;
+  protected: boolean;
+  cropCount: number;
+  reportCount: number;
 };
-export type OwnerAudit = { id: string; action: string; targetName: string; targetUid: string; resourceName?: string; status: string; createdAt: string; };
+export type OwnerAudit = {
+  id: string;
+  action: string;
+  targetName: string;
+  targetUid: string;
+  resourceName?: string;
+  status: string;
+  createdAt: string;
+};
 export type OwnerOverview = {
-  farmers: Farmer[]; total: number; page: number; pageSize: number;
+  farmers: Farmer[];
+  total: number;
+  page: number;
+  pageSize: number;
   stats: { farmers: number; online: number; crops: number; reports: number };
   activity: OwnerAudit[];
 };
-export type OwnerCrop = { id: string; name: string; notes: string; plantCount: number; createdAt: string | null; updatedAt: string | null; version: string; deleting: boolean; };
-export type OwnerReport = { id: string; crop: string; disease: string; severity: string; status: string; createdAt: string | null; plantName: string; };
-export type FarmerDetail = { farmer: Farmer; profileVersion: string; crops: OwnerCrop[]; reports: OwnerReport[]; activity: OwnerAudit[]; hasMoreCrops: boolean; hasMoreReports: boolean; };
+export type OwnerCrop = {
+  id: string;
+  name: string;
+  notes: string;
+  plantCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+  version: string;
+  deleting: boolean;
+};
+export type OwnerReport = {
+  id: string;
+  crop: string;
+  disease: string;
+  severity: string;
+  status: string;
+  createdAt: string | null;
+  plantName: string;
+};
+export type FarmerDetail = {
+  farmer: Farmer;
+  profileVersion: string;
+  crops: OwnerCrop[];
+  reports: OwnerReport[];
+  activity: OwnerAudit[];
+  hasMoreCrops: boolean;
+  hasMoreReports: boolean;
+};
