@@ -2,7 +2,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
 import { GET } from '../src/app/api/suppliers/real/route';
-import { countryAt, filterMarketplaceSuppliers, osmSupplier, searchMarketplace, supplierSearchBounds } from '../src/lib/marketplace-search';
+import { countryAt, filterMarketplaceSuppliers, osmSupplier, searchMarketplace, supplierSearchBounds, fetchFreeMarketplaceSuppliers } from '../src/lib/marketplace-search';
 import { getCurrentSupplierLocation, supplierLocationParams, matchesSupplierQuery, distanceKm } from '../src/lib/supplier-location';
 import type { Supplier } from '../src/lib/models';
 
@@ -57,7 +57,7 @@ test('directory request uses only a broad integer tile; no exact GPS or paid pro
     assert.ok(!query.includes(String(lahore.lat)) && !query.includes(String(lahore.lng)));
     return Response.json({ elements: [] });
   };
-  const result = await searchMarketplace(lahore, 50, '', async () => []);
+  const result = await searchMarketplace(lahore, 50, '', async () => [], fetchFreeMarketplaceSuppliers);
   assert.equal(result.countryCode, 'PK');
   assert.deepEqual(result.suppliers, []);
   assert.deepEqual(urls, ['https://overpass-api.de/api/interpreter']);
@@ -103,7 +103,7 @@ test('public mirror recovers from an unavailable or incomplete provider while en
         { type: 'node', id: 9, lat: 32.5, lon: 74.35, tags: { name: 'Far Nursery', landuse: 'plant_nursery' } },
       ] });
     };
-    const result = await searchMarketplace(lahore, 50, '', async () => []);
+    const result = await searchMarketplace(lahore, 50, '', async () => [], fetchFreeMarketplaceSuppliers);
     assert.deepEqual(result.suppliers.map(s => s.name), ['Local Nursery']);
     assert.deepEqual(result.warnings, []);
     assert.deepEqual(urls, ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']);
@@ -124,17 +124,17 @@ test('registered and public listings obey the same country, radius and product f
     { type: 'node', id: 1, lat: 31.53, lon: 74.35, tags: { name: 'Public wheat seeds', shop: 'agrarian' } },
     { type: 'node', id: 2, lat: 31.186, lon: 74.687, tags: { name: 'India wheat seeds', shop: 'agrarian' } },
   ] });
-  const result = await searchMarketplace(lahore, 15, 'wheat', async () => [shop('Registered wheat seeds', 31.55, 74.35), shop('Far wheat seeds', 24.8, 67.1)]);
+  const result = await searchMarketplace(lahore, 15, 'wheat', async () => [shop('Registered wheat seeds', 31.55, 74.35), shop('Far wheat seeds', 24.8, 67.1)], fetchFreeMarketplaceSuppliers);
   assert.deepEqual(result.suppliers.map(s => s.name), ['Registered wheat seeds', 'Public wheat seeds']);
   assert.deepEqual(result.suppliers.map(s => s.source), ['registered', 'openstreetmap']);
 });
 
 test('provider errors never create curated/sample results; registered matches remain available', async () => {
   globalThis.fetch = async () => new Response('', { status: 503 });
-  const result = await searchMarketplace(lahore, 50, '', async () => [shop('Registered', 31.55, 74.35)]);
+  const result = await searchMarketplace(lahore, 50, '', async () => [shop('Registered', 31.55, 74.35)], fetchFreeMarketplaceSuppliers);
   assert.deepEqual(result.suppliers.map(s => s.id), ['Registered']);
   assert.equal(result.warnings.length, 1);
-  await assert.rejects(searchMarketplace(lahore, 50, '', async () => { throw new Error('unavailable'); }), /temporarily unavailable/);
+  await assert.rejects(searchMarketplace(lahore, 50, '', async () => { throw new Error('unavailable'); }, fetchFreeMarketplaceSuppliers), /temporarily unavailable/);
 });
 
 test('API current mode ignores a stale city and rejects incomplete or empty GPS', async () => {
@@ -150,5 +150,23 @@ test('API current mode ignores a stale city and rejects incomplete or empty GPS'
   assert.equal(data.radiusKm, 20);
   for (const query of ['mode=current&location=Lahore', 'mode=current&lat=&lng=73', 'mode=current&lat=33&lng=']) {
     assert.equal((await GET(req(query))).status, 400);
+  }
+});
+
+
+test('Pakistan snapshot remains available during provider outages and respects both city radii', async () => {
+  globalThis.fetch = async () => { throw new Error('public directory must work without network'); };
+  for (const origin of [lahore, { lat: 33.72148, lng: 73.04329 }]) {
+    const wide = await searchMarketplace(origin, 50, '', async () => []);
+    const narrow = await searchMarketplace(origin, 10, '', async () => []);
+    assert.ok(wide.suppliers.length >= 5, 'expanded real map coverage');
+    assert.ok(narrow.suppliers.length < wide.suppliers.length);
+    assert.ok(wide.suppliers.every(s => s.distance! <= 50 && countryAt(s.location.coordinates) === 'PK'));
+    assert.ok(narrow.suppliers.every(s => s.distance! <= 10));
+    assert.deepEqual(wide.warnings, []);
+    assert.match(wide.directoryUpdatedAt!, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(wide.suppliers.every(s => !/school|university|nursery road/i.test(s.name)));
+    const seeds = await searchMarketplace(origin, 50, 'seeds', async () => []);
+    assert.ok(seeds.suppliers.every(s => matchesSupplierQuery(s, 'seeds')));
   }
 });

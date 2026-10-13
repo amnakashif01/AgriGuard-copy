@@ -91,21 +91,18 @@ test('API resolves Islamabad even with an incorrect province and stale Lahore co
       { name: 'Islamabad', latitude: 34, longitude: 70, country_code: 'AF', population: 9000000 },
       { name: 'Islamabad', latitude: 33.7215, longitude: 73.0433, country_code: 'PK', admin1: 'Islamabad Capital Territory' },
     ] });
-    assert.ok(decodeURIComponent(String(options?.body)).includes('(33,72,35,74)'));
-    assert.ok(!String(options?.body).includes('33.7215'), 'exact location stays inside the app');
-    return Response.json({ elements: [
-      { type: 'node', id: 1, lat: 33.7215, lon: 73.0433, tags: { name: 'Nearby seeds', shop: 'agrarian' } },
-      { type: 'node', id: 2, lat: 31.5497, lon: 74.3436, tags: { name: 'Lahore seeds', shop: 'agrarian' } },
-    ] });
+    throw new Error('No external map lookup is needed for Pakistan');
   };
   const response = await GET(req('source=osm&location=Islamabad%2C%20Punjab&lat=31.52&lng=74.35&radius=10000'));
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.location.city, 'Islamabad, Islamabad Capital Territory');
   assert.equal(data.countryCode, 'PK');
-  assert.deepEqual(data.suppliers.map((s: Supplier) => s.name), ['Nearby seeds']);
+  assert.ok(data.suppliers.length > 0);
+  assert.ok(data.suppliers.every((s: Supplier) => s.distance! <= 10));
+  assert.ok(data.suppliers.some((s: Supplier) => s.name === 'Forest Nursery'));
   assert.equal(data.radiusKm, 10);
-  assert.equal(urls.length, 2);
+  assert.equal(urls.length, 1);
 });
 
 test('API rejects missing/invalid location and radius before calling providers', async () => {
