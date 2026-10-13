@@ -208,8 +208,12 @@ export default function CropWorkspace({
         ),
       }
     : { items: [], nextCursor: null };
-  const comparisonRecords = records.data.filter((r) =>
-    knownIds.has(r.reportId),
+  const comparisonRecords = recordsInCareSeason(
+    records.data,
+    seasonReports,
+    seasonId,
+    crop.id,
+    plant?.id || "",
   );
   async function more(resource: "seasons" | "reports" | "events") {
     const cursor =
