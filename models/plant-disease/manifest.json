@@ -1,0 +1,22 @@
+{
+  "model": "YOLO11x PlantDisease116",
+  "displayName": "YOLO11x",
+  "source": "JK-TK/PlantDiseaseDetection",
+  "revision": "ee651406dd0b0bc9aa0458834f28316fc34b4435",
+  "sourceWeightsFile": "PlantDiseaseDetection.pt",
+  "sourceWeightsSha256": "e24887caf451239cd506fa611db25b9524430ca085aa562aecaf1b1d4e3c39bf",
+  "sourceWeightsBytes": 457175703,
+  "onnxSha256": "57a811f944a26c578defeb92d30900ef1fd73b89fa400ac68883c8af11389a99",
+  "onnxBytes": 114208511,
+  "precision": "FP16 weights; FP32 input/output; CPU ONNX Runtime",
+  "classes": 116,
+  "labelsSha256": "50ba41f32b0e3641e01beb1596a88da431ccd862bd0752e240e0b51bec6249dd",
+  "publisherLicense": "MIT model card; Ultralytics AGPL-3.0 applies to integrated model code",
+  "tools": {
+    "python": "3.12",
+    "torch": "2.8.0",
+    "ultralytics": "8.4.45",
+    "onnx": "1.19.1",
+    "onnxconverter-common": "1.16.0"
+  }
+}
