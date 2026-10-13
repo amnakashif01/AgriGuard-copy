@@ -29,6 +29,7 @@ export async function deletePlantRecord(uid: string, cropId: string, plantId: st
       if (replacementRef && !replacement?.exists()) return false;
       const now = new Date().toISOString();
       transaction.delete(recordRef);
+      if (report.data()?.careSeasonId) transaction.set(doc(db, 'users', uid, 'careDeletionJobs', reportId), { seasonId: report.data()!.careSeasonId });
       transaction.delete(reportRef);
       transaction.delete(doc(db, 'users', uid, 'notifications', `diagnosis_${reportId}`));
       transaction.update(plantRef, {
@@ -44,7 +45,7 @@ export async function deletePlantRecord(uid: string, cropId: string, plantId: st
       transaction.update(cropRef, { updatedAt: now });
       return true;
     });
-    if (done) return;
+    if (done) { const { cleanDeletedReportCare } = await import('../crop-care/delete-linked'); await cleanDeletedReportCare(db, uid, reportId); return; }
   }
   throw new Error('The plant history changed while deleting. Please try again.');
 }
