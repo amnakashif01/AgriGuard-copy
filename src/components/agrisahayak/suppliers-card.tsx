@@ -92,7 +92,12 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
         params.set('query', searchQuery.trim());
         const search = async () => {
             try {
-                const response = await fetch(`/api/suppliers/real?${params}`, { signal: controller.signal });
+                const idToken = user ? await user.getIdToken() : undefined;
+                if (controller.signal.aborted) return;
+                const response = await fetch(`/api/suppliers/real?${params}`, {
+                    signal: controller.signal,
+                    headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
+                });
                 const data = await response.json();
                 if (!response.ok || !data.success || !Array.isArray(data.suppliers) || !validCoordinates(data.location)) {
                     throw new Error(data.error || 'Nearby suppliers are temporarily unavailable. Please try again.');
@@ -109,7 +114,7 @@ export default function SuppliersCard({ searchQuery = '', filterType = 'all' }: 
         };
         void search();
         return () => controller.abort();
-    }, [profileLoaded, profile, radiusKm, searchQuery, currentLocation, locating, retry]);
+    }, [profileLoaded, profile, radiusKm, searchQuery, currentLocation, locating, retry, user]);
 
     const hasLocation = !!supplierLocationParams(profile, currentLocation);
     const visibleSuppliers = filterType === 'all' ? suppliers : suppliers.filter(supplier => supplier.type === filterType);
