@@ -38,7 +38,7 @@ const supplierSelectors = [
   '["landuse"="plant_nursery"]["name"]',
   '["trade"~"agricultur|irrigation",i]',
   '["craft"="agricultural_engines"]',
-  ...['shop', 'office', 'industrial'].map(key => `["${key}"]["name"~"${agriculturalNames}",i]`),
+  `["shop"~"^(yes|florist|hardware|wholesale|country_store)$"]["name"~"${agriculturalNames}",i]`,
 ];
 const productLabels: Record<string, string> = {
   seed: 'Seeds', seeds: 'Seeds', fertilizer: 'Fertilizers', fertiliser: 'Fertilizers',
@@ -79,17 +79,21 @@ export function osmSupplier(element: OSMElement): MarketplaceSupplier | null {
 export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promise<MarketplaceSupplier[]> {
   const country = countryAt(origin);
   if (!country) throw new Error('We could not identify your location. Please use your saved city or try locating again.');
-  // Bound each lookup to a coarse tile. Country and exact radius are checked locally.
-  const queries = supplierSearchBounds(origin).flatMap(bounds => supplierSelectors.map(selector => `nwr${selector}(${bounds});`)).join('');
-  const query = `[out:json][timeout:7];(${queries});out center tags;`;
+  // Narrow by country and indexed business tags before searching the coarse tile.
+  // Unrestricted office/name scans can exhaust the public provider's time budget.
+  const queries = supplierSearchBounds(origin).flatMap(bounds => supplierSelectors.map(selector => `nwr${selector}(area.country)(${bounds});`)).join('');
   // Stay within the route's 30 s budget, including saved-city lookup. Both services
   // expose the same free OSM data; a temporary outage must not silently hide shops.
-  for (const endpoint of ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter']) {
+  for (const [endpoint, seconds, deadline] of [
+    ['https://overpass-api.de/api/interpreter', 12, 15000],
+    ['https://overpass.private.coffee/api/interpreter', 4, 6000],
+  ] as const) {
+    const query = `[out:json][timeout:${seconds}];area["ISO3166-1"="${country}"]["admin_level"="2"]->.country;(${queries});out center tags;`;
     try {
       const response = await fetch(endpoint, {
         method: 'POST', body: new URLSearchParams({ data: query }).toString(),
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'AgriGuard/1.0 (agricultural supplier directory)' },
-        signal: AbortSignal.timeout(9000), next: { revalidate: 900 },
+        signal: AbortSignal.timeout(deadline), next: { revalidate: 900 },
       });
       if (!response.ok) continue;
       const data = await response.json();
