@@ -79,11 +79,11 @@ export async function fetchFreeMarketplaceSuppliers(origin: Coordinates): Promis
   // Narrow by country and indexed business tags before searching the coarse tile.
   // Unrestricted office/name scans can exhaust the public provider's time budget.
   const queries = supplierSearchBounds(origin).flatMap(bounds => supplierSelectors.map(selector => `nwr${selector}(area.country)(${bounds});`)).join('');
-  // Stay within the route's 30 s budget, including saved-city lookup. Both services
+  // Stay within the route's 60 s budget, including saved-city lookup. Both services
   // expose the same free OSM data; a temporary outage must not silently hide shops.
   for (const [endpoint, seconds, deadline] of [
     ['https://overpass-api.de/api/interpreter', 12, 15000],
-    ['https://overpass.private.coffee/api/interpreter', 4, 6000],
+    ['https://overpass.private.coffee/api/interpreter', 20, 35000],
   ] as const) {
     const query = `[out:json][timeout:${seconds}];area["ISO3166-1"="${country}"]["admin_level"="2"]->.country;(${queries});out center tags;`;
     try {
