@@ -182,6 +182,8 @@ export type Supplier = {
   };
   products: string[];
   services: string[];
+  website?: string;
+  featuredProducts?: { name: string; url: string; image: string }[];
   contact: {
     phone: string;
     email?: string;
