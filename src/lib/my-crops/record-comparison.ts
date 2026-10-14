@@ -63,7 +63,7 @@ function unavailable(reason: string, previous: PlantRecord, current: PlantRecord
 /** A read-only comparison of saved assessments; no new diagnosis or inferred cure. */
 export function comparePlantRecords(previous: PlantRecord, current: PlantRecord): RecordComparison {
   if (!previous.cropId || !previous.plantId || previous.cropId !== current.cropId || previous.plantId !== current.plantId) {
-    return unavailable('Choose two records of the same plant.', previous, current);
+    return unavailable('Choose two reports of the same plant.', previous, current);
   }
   if (previous.id === current.id) return unavailable('Choose two different tests.', previous, current);
   const beforeTime = Date.parse(previous.createdAt), afterTime = Date.parse(current.createdAt);
@@ -71,11 +71,11 @@ export function comparePlantRecords(previous: PlantRecord, current: PlantRecord)
     return unavailable('The earlier test needs a valid date before the newer test.', previous, current);
   }
   if (previous.status !== 'Complete' || current.status !== 'Complete' || !previous.diagnosis || !current.diagnosis) {
-    return unavailable('Both tests need completed analyses before their results can be compared.', previous, current);
+    return unavailable('Both reports must be ready before you can compare them.', previous, current);
   }
   const before = previous.diagnosis, after = current.diagnosis;
   if ([before.disease, before.crop, after.disease, after.crop].some(value => INVALID_SUBJECTS.has(labelKey(value)))) {
-    return unavailable('One of these analyses could not identify a usable crop image. Add a clear photo of this plant.', previous, current);
+    return unavailable('One photo could not be checked. Add a clear photo of this crop.', previous, current);
   }
   const previousScore = validSeverityScore(previous.severityScore), currentScore = validSeverityScore(current.severityScore);
   const numeric = previousScore !== null && currentScore !== null;
@@ -85,28 +85,28 @@ export function comparePlantRecords(previous: PlantRecord, current: PlantRecord)
   const direction: ProgressDirection = difference === null ? 'unavailable' : difference < 0 ? 'improving' : difference > 0 ? 'worsening' : 'unchanged';
   const reviewReasons: string[] = [];
   if ([before, after].some(result => result.expertReviewRequired || !Number.isFinite(result.confidence) || result.confidence < 70 || result.confidence > 100)) {
-    reviewReasons.push('At least one diagnosis needs expert review or has low confidence. Treat the trend as tentative.');
+    reviewReasons.push('One result is uncertain. Ask a crop expert to check it before relying on this change.');
   }
   if ([before, after].some(result => !labelKey(result.disease) || UNKNOWN_DIAGNOSES.has(labelKey(result.disease)))) {
-    reviewReasons.push('A cause has not been identified in at least one test; a severity change does not confirm what caused it.');
+    reviewReasons.push('One report could not identify the problem. A change in damage does not tell us its cause.');
   }
   if ([{ diagnosis: before, score: previousScore }, { diagnosis: after, score: currentScore }].some(({ diagnosis, score }) => {
     if (score === null) return false;
     const expected = score === 0 ? 'None' : score <= 33 ? 'Low' : score <= 66 ? 'Medium' : 'High';
     return diagnosis.severity !== expected;
-  })) reviewReasons.push('A saved severity score and its category disagree. Review the reports before drawing a conclusion.');
+  })) reviewReasons.push('The damage score and level do not match. Check both reports.');
   if ([before, after].some(result => HEALTHY_DIAGNOSES.has(labelKey(result.disease)) !== (result.severity === 'None'))) {
-    reviewReasons.push('A diagnosis label and its symptom category do not agree. Check the saved analyses.');
+    reviewReasons.push('The problem name and damage level do not match. Check both reports.');
   }
 
   const title = direction === 'improving' ? (reviewReasons.length ? 'Possible improvement' : 'Improving')
     : direction === 'worsening' ? (reviewReasons.length ? 'Possible worsening' : 'Worsening')
-    : direction === 'unchanged' ? (numeric ? 'No change in severity' : 'Same severity category') : 'Severity trend unavailable';
+    : direction === 'unchanged' ? (numeric ? 'Damage level is the same' : 'Damage level is the same') : 'Damage could not be compared';
   const summary = numeric
-    ? change === 0 ? `Both tests have an estimated severity of ${currentScore}/100.`
-      : `Estimated severity ${change! < 0 ? 'fell' : 'rose'} from ${previousScore}/100 to ${currentScore}/100 — ${Math.abs(change!)} point${Math.abs(change!) === 1 ? '' : 's'} ${change! < 0 ? 'lower' : 'higher'}.`
-    : categoryValid ? `Severity category: ${before.severity} → ${after.severity}. A numeric score is missing, so an exact point change is unavailable.`
-      : 'A comparable severity score or category is missing. The saved diagnoses are shown below.';
+    ? change === 0 ? `Both reports have an estimated damage score of ${currentScore}/100.`
+      : `Estimated damage ${change! < 0 ? 'fell' : 'rose'} from ${previousScore}/100 to ${currentScore}/100 — ${Math.abs(change!)} point${Math.abs(change!) === 1 ? '' : 's'} ${change! < 0 ? 'lower' : 'higher'}.`
+    : categoryValid ? `Damage level: ${before.severity} → ${after.severity}. No score was saved for one or both reports.`
+      : 'A damage score or level is missing. You can still read both reports below.';
 
   const beforeKey = labelKey(before.disease), afterKey = labelKey(after.disease);
   const unknown = !beforeKey || !afterKey || UNKNOWN_DIAGNOSES.has(beforeKey) || UNKNOWN_DIAGNOSES.has(afterKey);
@@ -114,23 +114,23 @@ export function comparePlantRecords(previous: PlantRecord, current: PlantRecord)
   const beforeHealthy = !unknown && healthy(before, previousScore), afterHealthy = !unknown && healthy(after, currentScore);
   let diagnosisTitle: string, diagnosisSummary: string;
   if (unknown) {
-    diagnosisTitle = 'Cause still needs confirmation';
-    diagnosisSummary = 'An unknown or unidentified issue cannot be marked as resolved or matched to a new disease from these labels alone.';
+    diagnosisTitle = 'The cause is still unclear';
+    diagnosisSummary = 'The cause is unclear, so these reports cannot tell us if the old problem is gone.';
   } else if (beforeHealthy && afterHealthy) {
-    diagnosisTitle = 'No visible symptoms reported';
-    diagnosisSummary = 'Both saved analyses report no visible symptoms.';
+    diagnosisTitle = 'No visible damage found';
+    diagnosisSummary = 'Both reports show no visible damage.';
   } else if (afterHealthy) {
-    diagnosisTitle = 'Earlier issue not detected in the newer test';
-    diagnosisSummary = `The earlier test reported “${before.disease}”. The newer analysis reports no visible symptoms; this does not confirm that the condition is cured.`;
+    diagnosisTitle = 'Earlier problem not detected now';
+    diagnosisSummary = `The earlier report showed “${before.disease}”. The newer photo shows no visible damage. This does not prove full recovery.`;
   } else if (beforeHealthy) {
-    diagnosisTitle = 'New issue reported';
-    diagnosisSummary = `The earlier test reported no visible symptoms. The newer test reports “${after.disease}”.`;
+    diagnosisTitle = 'A new problem was found';
+    diagnosisSummary = `The earlier report showed no visible damage. The newer report shows “${after.disease}”.`;
   } else if (beforeKey === afterKey) {
-    diagnosisTitle = 'Issue still reported';
-    diagnosisSummary = `“${after.disease}” appears in both tests${direction === 'improving' ? ', with lower estimated severity in the newer test' : direction === 'worsening' ? ', with higher estimated severity in the newer test' : ''}.`;
+    diagnosisTitle = 'The problem is still there';
+    diagnosisSummary = `“${after.disease}” appears in both reports${direction === 'improving' ? ', with less estimated damage now' : direction === 'worsening' ? ', with more estimated damage now' : ''}.`;
   } else {
-    diagnosisTitle = 'Reported diagnosis changed';
-    diagnosisSummary = `The report changed from “${before.disease}” to “${after.disease}”. A different label does not prove the earlier condition has resolved or that the new condition has just appeared.`;
+    diagnosisTitle = 'The problem name changed';
+    diagnosisSummary = `The report changed from “${before.disease}” to “${after.disease}”. A different problem name does not prove that the old problem is gone.`;
   }
   const beforeParts = partMap(before.affectedParts), afterParts = partMap(after.affectedParts);
   return {
