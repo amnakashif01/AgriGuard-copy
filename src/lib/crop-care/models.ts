@@ -315,12 +315,12 @@ export function diseaseMatch(
     ? {
         match: "similar",
         explanation:
-          "The saved diagnosis labels match, but uncertainty remains. This does not confirm the same cause.",
+          "These reports may show the same problem, but the cause is not confirmed.",
       }
     : {
         match: "same",
         explanation:
-          "The same diagnosis label was saved in both reports. These are separate crop checks, not proof of the same outbreak.",
+          "Both reports show the same problem name. They are separate checks and may have different causes.",
       };
 }
 export function latestOutcome(

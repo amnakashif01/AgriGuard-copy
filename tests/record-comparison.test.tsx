@@ -27,22 +27,22 @@ test('tracks improving, worsening and unchanged severity as points, including ze
   assert.equal(improvement.title, 'Improving');
   assert.equal(improvement.change, -40);
   assert.match(improvement.summary, /40 points lower/);
-  assert.equal(improvement.diagnosisTitle, 'Issue still reported');
+  assert.equal(improvement.diagnosisTitle, 'The problem is still there');
   assert.equal(comparePlantRecords(after, record('c', 3, 80)).direction, 'worsening');
   assert.equal(comparePlantRecords(after, record('c', 3, 25)).direction, 'unchanged');
   const healthy = record('c', 3, 0, 'Healthy');
   assert.equal(comparePlantRecords(after, healthy).currentScore, 0);
   assert.equal(comparePlantRecords(after, healthy).change, -25);
-  assert.match(comparePlantRecords(after, healthy).diagnosisSummary, /does not confirm.*cured/);
-  assert.equal(comparePlantRecords(healthy, record('d', 4, 20)).diagnosisTitle, 'New issue reported');
+  assert.match(comparePlantRecords(after, healthy).diagnosisSummary, /does not prove full recovery/);
+  assert.equal(comparePlantRecords(healthy, record('d', 4, 20)).diagnosisTitle, 'A new problem was found');
 });
 
 test('uses category fallback without inventing numeric scores or claiming unchanged health', () => {
   const before = record('a', 1, null), after = record('b', 2, 20);
   const result = comparePlantRecords(before, after);
   assert.equal(result.basis, 'category'); assert.equal(result.change, null); assert.equal(result.direction, 'improving');
-  assert.match(result.summary, /exact point change is unavailable/);
-  assert.equal(comparePlantRecords(before, record('b', 2, null)).title, 'Same severity category');
+  assert.match(result.summary, /No score was saved/);
+  assert.equal(comparePlantRecords(before, record('b', 2, null)).title, 'Damage level is the same');
   for (const invalid of [NaN, Infinity, -1, 101, 30.5]) {
     assert.equal(comparePlantRecords({ ...before, severityScore: invalid }, after).basis, 'category');
   }
@@ -53,8 +53,8 @@ test('uses category fallback without inventing numeric scores or claiming unchan
 test('never equates a different disease label with a cured issue', () => {
   const result = comparePlantRecords(record('a', 1, 65), record('b', 2, 20, 'Bacterial spot'));
   assert.equal(result.direction, 'improving');
-  assert.equal(result.diagnosisTitle, 'Reported diagnosis changed');
-  assert.match(result.diagnosisSummary, /does not prove.*resolved/);
+  assert.equal(result.diagnosisTitle, 'The problem name changed');
+  assert.match(result.diagnosisSummary, /does not prove.*gone/);
   assert.doesNotMatch(result.diagnosisSummary, /has been cured|is fixed/);
 });
 
@@ -65,7 +65,7 @@ test('flags uncertain and contradictory diagnoses; rejects non-crop photos', () 
     assert.equal(result.title, 'Possible improvement'); assert.ok(result.reviewReasons.length);
   }
   const contradictory = record('b', 2, 0, 'Early blight', { diagnosis: { ...after.diagnosis!, severity: 'None', affectedParts: [] } });
-  assert.equal(comparePlantRecords(before, contradictory).diagnosisTitle, 'Issue still reported');
+  assert.equal(comparePlantRecords(before, contradictory).diagnosisTitle, 'The problem is still there');
   assert.ok(comparePlantRecords(before, contradictory).reviewReasons.length);
   assert.equal(comparePlantRecords(before, record('b', 2, 0, 'Not a Crop')).direction, 'unavailable');
   assert.equal(comparePlantRecords(before, { ...after, diagnosis: undefined }).direction, 'unavailable');
@@ -98,11 +98,11 @@ test('compares affected-part labels without mistaking singular or casing changes
 
 test('renders a clear baseline rather than a fabricated comparison for one test', () => {
   const html = renderToStaticMarkup(<PlantProgressComparison records={[record('a', 1, 60)]} cropId="tomato" plantId="plant-a" />);
-  assert.match(html, /Your first test is the baseline/);
+  assert.match(html, /This is your first report/);
   assert.match(html, /href="\/my-crops\/tomato\/plant-a\/new"/);
   assert.doesNotMatch(html, /Improving|Worsening|<select/);
   const empty = renderToStaticMarkup(<PlantProgressComparison records={[]} cropId="tomato" plantId="plant-a" />);
-  assert.match(empty, /Complete two tests/);
+  assert.match(empty, /Check two photos/);
 });
 
 test('defaults to the previous completed test and offers older history, report links and original observations', () => {
@@ -127,7 +127,7 @@ test('supports healthy Urdu diagnoses without assuming an untranslated label is 
   const after = record('b', 2, 0, 'Healthy'); after.diagnosis!.disease = 'صحت مند';
   assert.match(comparePlantRecords(record('a', 1, 60), after).diagnosisTitle, /not detected/);
   const unknown = record('b', 2, 20, 'نامعلوم بیماری');
-  assert.equal(comparePlantRecords(record('a', 1, 60), unknown).diagnosisTitle, 'Cause still needs confirmation');
+  assert.equal(comparePlantRecords(record('a', 1, 60), unknown).diagnosisTitle, 'The cause is still unclear');
 });
 
 test('retains 4, 10 and 100 tests while rendering only two at a time', () => {
@@ -201,10 +201,10 @@ test('all-test findings normalize labels and preserve zero, missing scores and u
   assert.equal(history.entries[1].comparison!.title, 'Possible improvement');
   assert.equal(history.overall!.currentScore, 0);
   const html = renderToStaticMarkup(<PlantProgressComparison records={records} cropId="tomato" plantId="plant-a" />);
-  assert.match(html, /Numeric score unavailable/);
+  assert.match(html, /No damage score saved/);
   const lastPage = renderToStaticMarkup(<ComparisonCards entries={comparisonWindow(history, 1).entries} latestNumber={3} />);
   assert.match(lastPage, /aria-valuenow="0"/);
-  assert.match(html, /Not reported does not confirm an issue is resolved/);
+  assert.match(html, /A problem missing from a report may still need checking/);
   assert.doesNotMatch(html, /NaN|undefined/);
 });
 

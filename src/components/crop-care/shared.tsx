@@ -1,4 +1,5 @@
 "use client";
+import { outcomeText } from "@/lib/crop-care/display";
 import {
   useCallback,
   useId,
@@ -110,7 +111,7 @@ export function useCareApi({ uid, mode = "self" }: Scope = {}) {
       } catch (e) {
         if (controller.signal.aborted && !signal?.aborted)
           throw new Error(
-            "Care history took too long to load. Your diagnosis is already saved; try Refresh.",
+            "Loading took too long. Your report is saved. Tap Refresh to try again.",
           );
         throw e;
       } finally {
@@ -215,29 +216,29 @@ export function SeasonForm({
           />
         </div>
         <div>
-          <Label htmlFor="care-field">Field / plot / tree name</Label>
+          <Label htmlFor="care-field">Field or plant name</Label>
           <Input
             id="care-field"
             required
             maxLength={100}
-            placeholder="Field A or Mango tree 1"
+            placeholder="For example, Field A or Mango tree 1"
             value={values.field}
             onChange={(e) => setValues({ ...values, field: e.target.value })}
           />
         </div>
         <div>
-          <Label htmlFor="care-season">Season / crop cycle</Label>
+          <Label htmlFor="care-season">Crop season</Label>
           <Input
             id="care-season"
             required
             maxLength={64}
-            placeholder="Rabi 2026–27 or Tomato cycle 2"
+            placeholder="For example, Wheat 2026–27"
             value={values.label}
             onChange={(e) => setValues({ ...values, label: e.target.value })}
           />
         </div>
         <div>
-          <Label htmlFor="care-start">Planting / season start</Label>
+          <Label htmlFor="care-start">Planting date</Label>
           <Input
             id="care-start"
             type="date"
@@ -250,7 +251,7 @@ export function SeasonForm({
           />
         </div>
         <div>
-          <Label htmlFor="care-status">Season status</Label>
+          <Label htmlFor="care-status">Is the crop still growing?</Label>
           <select
             id="care-status"
             className={select}
@@ -263,13 +264,13 @@ export function SeasonForm({
               })
             }
           >
-            <option value="active">Active / growing</option>
-            <option value="completed">Harvested / completed</option>
+            <option value="active">Still growing</option>
+            <option value="completed">Harvested or finished</option>
           </select>
         </div>
         {values.status === "completed" && (
           <div>
-            <Label htmlFor="care-end">Harvest / season end</Label>
+            <Label htmlFor="care-end">Harvest or finish date</Label>
             <Input
               id="care-end"
               type="date"
@@ -285,9 +286,8 @@ export function SeasonForm({
         )}
       </div>
       <p className="text-xs leading-5 text-slate-500">
-        Dates use Pakistan time. Each planting has its own record. For a
-        permanent tree, create a new season under the same tree name. Older
-        diagnoses stay in their original cycle.
+        Start a new season when you plant again. For a tree, keep its name and
+        add a new season. Older reports stay saved. Dates use Pakistan time.
       </p>
       {error && <ErrorBox>{error}</ErrorBox>}
       <div className="flex gap-2">
@@ -297,7 +297,7 @@ export function SeasonForm({
           ) : (
             <Plus className="mr-2 h-4 w-4" />
           )}
-          {initial ? "Save season" : "Create care record"}
+          Save season
         </Button>
         <Button
           type="button"
@@ -403,7 +403,7 @@ export function EventComposer({
       {!simple && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-semibold">
-            {kind === "applied" ? "What I Used" : "Add a follow-up observation"}
+            {kind === "applied" ? "What I Used" : "Add a crop update"}
           </h3>
           <div className="flex gap-2">
             <Button
@@ -420,7 +420,7 @@ export function EventComposer({
               variant={kind === "followup" ? "default" : "outline"}
               onClick={() => setKind("followup")}
             >
-              Follow-up
+              Crop update
             </Button>
           </div>
         </div>
@@ -431,19 +431,19 @@ export function EventComposer({
             <div>
               <Label htmlFor={`${formId}-care-product`}>
                 {simple
-                  ? "Product or care action"
-                  : "Pesticide / treatment actually used"}
+                  ? "What did you use or do?"
+                  : "Product or treatment used"}
               </Label>
               <Input
                 id={`${formId}-care-product`}
                 value={product}
                 required
                 maxLength={160}
-                placeholder="Enter the exact product or care action"
+                placeholder="For example, product name or watering"
                 onChange={(e) => setProduct(e.target.value)}
               />
               <p className="mt-1 text-xs text-slate-500">
-                Record what you used, even if it differs from the AI suggestion.
+                Write what you actually used or did.
               </p>
             </div>
             {!simple && (
@@ -456,7 +456,7 @@ export function EventComposer({
                   htmlFor={`${formId}-care-category`}
                   className="mt-3 block"
                 >
-                  Treatment category
+                  Type of care
                 </Label>
                 <select
                   id={`${formId}-care-category`}
@@ -466,15 +466,15 @@ export function EventComposer({
                     setCategory(e.target.value as typeof category)
                   }
                 >
-                  <option value="pesticide">
-                    Pesticide / crop-protection product
-                  </option>
+                  <option value="pesticide">Pesticide or spray</option>
                   <option value="cultural">
-                    Cultivation / watering / pruning
+                    Watering, soil work or pruning
                   </option>
-                  <option value="biological">Biological control</option>
+                  <option value="biological">
+                    Useful insects or other natural control
+                  </option>
                   <option value="monitoring">
-                    Monitoring / no product applied
+                    Checked the crop · no product used
                   </option>
                   <option value="other">Other</option>
                 </select>
@@ -500,7 +500,7 @@ export function EventComposer({
               ) : (
                 <>
                   <Label htmlFor={`${formId}-care-treatment`}>
-                    Which applied treatment?
+                    Which treatment did you use?
                   </Label>
                   <select
                     id={`${formId}-care-treatment`}
@@ -520,13 +520,13 @@ export function EventComposer({
               )}
               {!applied.length && (
                 <p className="mt-2 text-sm text-slate-500">
-                  Record your treatment or monitoring action first.
+                  First, save what you used or did.
                 </p>
               )}
             </div>
             <div>
               <Label htmlFor={`${formId}-care-outcome`}>
-                Condition you observed
+                How does the crop look?
               </Label>
               <select
                 id={`${formId}-care-outcome`}
@@ -535,14 +535,16 @@ export function EventComposer({
                 onChange={(e) => setOutcome(e.target.value as typeof outcome)}
               >
                 {outcomes.map((o) => (
-                  <option key={o}>{o}</option>
+                  <option key={o} value={o}>
+                    {outcomeText(o)}
+                  </option>
                 ))}
               </select>
             </div>
             {!simple && reports.length > 1 && (
               <div>
                 <Label htmlFor={`${formId}-care-followup-report`}>
-                  Follow-up diagnosis (optional)
+                  Add a later report (optional)
                 </Label>
                 <select
                   id={`${formId}-care-followup-report`}
@@ -550,7 +552,7 @@ export function EventComposer({
                   value={followupReportId}
                   onChange={(e) => setFollowupReportId(e.target.value)}
                 >
-                  <option value="">No linked follow-up report</option>
+                  <option value="">No later report selected</option>
                   {reports
                     .filter(
                       (r) =>
@@ -570,7 +572,7 @@ export function EventComposer({
         <div className={simple ? "" : "grid gap-4 sm:grid-cols-2"}>
           <div>
             <Label htmlFor={`${formId}-care-date`}>
-              {kind === "applied" ? "Date used" : "Date observed"}
+              {kind === "applied" ? "Date used" : "Date checked"}
             </Label>
             <Input
               id={`${formId}-care-date`}
@@ -593,9 +595,7 @@ export function EventComposer({
             + Add photo or note
           </summary>
           <div className="mt-3 space-y-3">
-            <Label htmlFor={`${formId}-care-photo`}>
-              Supporting photo (optional)
-            </Label>
+            <Label htmlFor={`${formId}-care-photo`}>Photo (optional)</Label>
             <Input
               id={`${formId}-care-photo`}
               type="file"
@@ -657,11 +657,10 @@ export function EventComposer({
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          {kind === "applied" ? "Save treatment" : "Save follow-up"}
+          {kind === "applied" ? "Save treatment" : "Save update"}
         </Button>
         <p className="text-xs text-slate-500">
-          Saved observations are farmer-reported. Each follow-up adds to the
-          history; earlier observations remain.
+          Your updates are saved by date. Earlier updates stay in your history.
         </p>
       </form>
     </section>
@@ -694,12 +693,11 @@ export function CareTimeline({
     <section className={panel}>
       <h3 className="mb-4 flex items-center gap-2 font-semibold">
         <Sprout className="h-5 w-5 text-emerald-700" />
-        Care timeline
+        Care history
       </h3>
       {!rows.length && (
         <p className="text-sm text-slate-500">
-          No care entries yet. A suggestion is not recorded as an applied
-          treatment.
+          No care saved yet. A suggested treatment is not marked as used.
         </p>
       )}
       {error && <ErrorBox>{error}</ErrorBox>}
@@ -721,27 +719,27 @@ export function CareTimeline({
                 </span>
                 <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
                   {e.voidedAt
-                    ? "Voided"
+                    ? "Marked as a mistake"
                     : e.kind === "planned"
-                      ? "Planned · not applied"
+                      ? "Planned · not used yet"
                       : e.kind === "applied"
-                        ? "Applied / performed"
-                        : "Follow-up · farmer reported"}
+                        ? "Used or done"
+                        : "Your crop update"}
                 </span>
               </div>
               <p className="mt-1 font-medium">
-                {e.kind === "followup" ? e.outcome : e.product}
+                {e.kind === "followup" ? outcomeText(e.outcome) : e.product}
               </p>
               {outcome && (
                 <p className="mt-1 text-sm text-emerald-800">
-                  Follow-up in loaded history: {outcome.outcome} · reported by
+                  Crop update: {outcomeText(outcome.outcome)} · reported by
                   farmer
                 </p>
               )}
               {orphaned && (
                 <p className="text-xs text-amber-800">
-                  The associated treatment was voided. This observation is
-                  retained for history.
+                  The treatment was marked as a mistake. This update stays in
+                  the history.
                 </p>
               )}
               {e.notes && (
@@ -750,11 +748,13 @@ export function CareTimeline({
                 </p>
               )}
               {e.voidedAt && (
-                <p className="text-xs text-slate-500">Voided: {e.voidReason}</p>
+                <p className="text-xs text-slate-500">
+                  Marked as a mistake: {e.voidReason}
+                </p>
               )}
               {e.suggestion && e.kind === "applied" && (
                 <p className="mt-2 text-xs text-slate-500">
-                  AI suggestion at the time: {e.suggestion.title}
+                  AI suggested: {e.suggestion.title}
                 </p>
               )}
               {e.hasImage && !e.voidedAt && !photos[e.id] && (
@@ -807,12 +807,12 @@ export function CareTimeline({
                     setReason("");
                   }}
                 >
-                  Correct / void this entry
+                  Mark as a mistake
                 </Button>
               )}
               {voidId === e.id && (
                 <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3">
-                  <Label htmlFor={"void-" + e.id}>Reason for correction</Label>
+                  <Label htmlFor={"void-" + e.id}>What was wrong?</Label>
                   <Input
                     id={"void-" + e.id}
                     value={reason}
@@ -820,8 +820,9 @@ export function CareTimeline({
                     onChange={(v) => setReason(v.target.value)}
                   />
                   <p className="text-xs text-slate-500">
-                    This marks the entry as void, keeps an audit trail and
-                    removes its photo. Add a corrected entry afterwards.
+                    This marks the entry as a mistake and removes its photo. The
+                    old text stays in history. You can then add the correct
+                    entry.
                   </p>
                   <Button
                     size="sm"
@@ -855,7 +856,7 @@ export function CareTimeline({
                       }
                     }}
                   >
-                    Void entry
+                    Mark as a mistake
                   </Button>
                   <Button
                     size="sm"

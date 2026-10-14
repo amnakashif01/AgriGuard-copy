@@ -150,8 +150,7 @@ export default function CropWorkspace({
     )
       .then((v) => {
         if (controller.signal.aborted) return;
-        if (!fits(v.season))
-          throw new Error("Choose a season belonging to this crop and plant.");
+        if (!fits(v.season)) throw new Error("Choose a season for this crop.");
         setDetail(v);
         const available = v.reports.items
           .filter((r) => !plant || r.plantId === plant.id)
@@ -328,14 +327,14 @@ export default function CropWorkspace({
       {children}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <Label htmlFor="workspace-season">Season / crop cycle</Label>
+          <Label htmlFor="workspace-season">Crop season</Label>
           <select
             id="workspace-season"
             className={select + " mt-2"}
             value={seasonId}
             onChange={(e) => chooseSeason(e.target.value)}
           >
-            <option value="">Choose a growing season</option>
+            <option value="">Choose a season</option>
             {options.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.field} · {s.label} ·{" "}
@@ -380,22 +379,22 @@ export default function CropWorkspace({
         <section className={panel}>
           <Leaf className="mb-3 h-7 w-7 text-emerald-700" />
           <h2 className="text-lg font-semibold text-emerald-950">
-            Keep this crop’s reports and care together
+            Save your crop reports and care
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Create a season for this planting, or open a saved report to add it
-            to an existing season. Earlier records stay saved.
+            Start a season for this crop. You can add new reports or saved
+            reports to it.
           </p>
           <Button
             className={primary + " mt-4"}
             onClick={() => setCreateOpen(true)}
           >
-            Create first season
+            Start first season
           </Button>
           <div className="mt-3">{moreSeasons}</div>
         </section>
       )}
-      {detailLoading && <Busy>Opening this crop cycle…</Busy>}
+      {detailLoading && <Busy>Opening this season…</Busy>}
       {detail && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -404,21 +403,21 @@ export default function CropWorkspace({
               {detail.season.endedOn ? date(detail.season.endedOn) : "Growing"}{" "}
               ·{" "}
               {detail.season.status === "completed"
-                ? "Harvested crop cycle"
-                : "Current crop cycle"}
+                ? "Harvested"
+                : "Growing now"}
             </p>
             <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
-              Edit / finish season
+              Edit season or mark harvested
             </Button>
           </div>
           {seasonReports.length > 0 ? (
-            <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+            <section className="grid grid-cols-1 items-end gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
               <div className="min-w-0 flex-1">
                 <Label
                   htmlFor="workspace-report"
                   className="text-xs text-emerald-800"
                 >
-                  Report for this season
+                  Choose a report
                 </Label>
                 <select
                   id="workspace-report"
@@ -434,20 +433,23 @@ export default function CropWorkspace({
                 </select>
               </div>
               {reportId && (
-                <Button variant="link" asChild>
+                <Button
+                  variant="link"
+                  className="h-11 w-full justify-center sm:w-auto"
+                  asChild
+                >
                   <Link href={`/report/${reportId}`}>
-                    View report & AI care{" "}
-                    <ArrowRight className="ml-1 h-4 w-4" />
+                    View report & care <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
               )}
             </section>
           ) : (
             <section className={panel}>
-              <h3 className="font-semibold">No reports linked here yet</h3>
+              <h3 className="font-semibold">No reports in this season yet</h3>
               <p className="mt-2 text-sm text-slate-500">
-                Open a saved report and choose this season, or create a new
-                diagnosis.
+                Add a new report, or open a saved report and add it to this
+                season.
               </p>
               <Link
                 className="mt-3 inline-block text-sm font-medium text-emerald-800 underline"
@@ -464,10 +466,10 @@ export default function CropWorkspace({
               disabled={busy}
               onClick={() => more("reports")}
             >
-              Load more reports in this season
+              Show more reports
             </Button>
           )}
-          {reportLoading && <Busy>Opening saved report details…</Busy>}
+          {reportLoading && <Busy>Opening report…</Busy>}
           {report && report.careSeasonId === seasonId && (
             <>
               <ReportPhotos
@@ -494,7 +496,7 @@ export default function CropWorkspace({
                 readOnly={false}
                 reports={seasonReports}
                 onChanged={() => {
-                  setNotice("Care entry saved.");
+                  setNotice("Care saved.");
                   refresh();
                 }}
                 onMore={() => more("events")}
@@ -512,10 +514,10 @@ export default function CropWorkspace({
               >
                 <span>
                   <span className="block font-semibold text-emerald-950">
-                    More comparison details
+                    Compare reports
                   </span>
                   <span className="mt-1 block text-xs text-slate-500">
-                    Same plant / plot, different checks.
+                    See what changed between checks.
                   </span>
                 </span>
                 <ChevronDown
@@ -539,9 +541,8 @@ export default function CropWorkspace({
                     )
                   ) : (
                     <p className="text-sm text-slate-500">
-                      Choose a named plant above to compare checks of the same
-                      plant. Field-wide reports remain available in the report
-                      selector.
+                      Choose a plant above to compare its reports. Field reports
+                      are in the report list.
                     </p>
                   )}
                   {detail.reports.nextCursor && (
@@ -550,7 +551,7 @@ export default function CropWorkspace({
                       disabled={busy}
                       onClick={() => more("reports")}
                     >
-                      Load more reports for comparison
+                      Show more reports
                     </Button>
                   )}
                 </div>
@@ -566,8 +567,7 @@ export default function CropWorkspace({
             <ChevronDown className="h-4 w-4 group-open:rotate-180" />
           </summary>
           <p className="mt-2 text-xs text-slate-500">
-            Open any report to assign its correct season. Dates alone do not
-            assign a crop cycle.
+            Open a report and choose the season it belongs to.
           </p>
           <ul className="mt-4 space-y-2">
             {[...records.data].reverse().map((r) => (
@@ -609,7 +609,7 @@ export default function CropWorkspace({
               All past seasons
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Earlier plantings stay separate.
+              See reports and care from earlier seasons.
             </p>
           </div>
           <Button variant="link" onClick={() => setHistoryOpen(true)}>
@@ -620,9 +620,9 @@ export default function CropWorkspace({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Start a growing season</DialogTitle>
+            <DialogTitle>Start a new season</DialogTitle>
             <DialogDescription>
-              Each new planting gets its own care record.
+              Start a new season each time you plant this crop.
             </DialogDescription>
           </DialogHeader>
           <SeasonForm
@@ -643,10 +643,10 @@ export default function CropWorkspace({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit / finish season</DialogTitle>
+            <DialogTitle>Edit season or mark harvested</DialogTitle>
             <DialogDescription>
-              Keep the dates of this planting. Start a new season for a new crop
-              cycle.
+              Use the dates for this crop. Start a new season when you plant
+              again.
             </DialogDescription>
           </DialogHeader>
           {detail && (
@@ -668,7 +668,7 @@ export default function CropWorkspace({
           <DialogHeader>
             <DialogTitle>{crop.name} · All seasons</DialogTitle>
             <DialogDescription>
-              Open a previous cycle to see its saved reports and care diary.
+              Choose an earlier season to see its reports and care.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -688,7 +688,7 @@ export default function CropWorkspace({
               </button>
             ))}
             {!options.length && (
-              <p className="text-sm text-slate-500">No seasons loaded yet.</p>
+              <p className="text-sm text-slate-500">No saved seasons yet.</p>
             )}
             {moreSeasons}
           </div>
@@ -707,7 +707,7 @@ export default function CropWorkspace({
           <DialogHeader>
             <DialogTitle>Add saved report to a season</DialogTitle>
             <DialogDescription>
-              Select the planting this report belongs to.
+              Choose the season for this report.
             </DialogDescription>
           </DialogHeader>
           {linkReport && (
