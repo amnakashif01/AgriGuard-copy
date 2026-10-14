@@ -20,6 +20,7 @@ import {
   type SeasonInput,
 } from "../crop-care/models";
 import { dateValue, recordVersion } from "./farmer-workspace-service";
+import { savedCarePhoto } from "../crop-care/report-photos";
 type Services = ReturnType<typeof adminServices>;
 const clean = (v: unknown, n = 2000) =>
   typeof v === "string" ? v.slice(0, n) : "";
@@ -72,9 +73,7 @@ function reportView(doc: DocumentSnapshot, full = false): CareReport {
     ...(full
       ? {
           description: clean(d.description, 6000),
-          image: /^data:image\/(jpeg|png|webp);base64,/.test(d.imageThumb || "")
-            ? clean(d.imageThumb, 100000)
-            : "",
+          image: savedCarePhoto(d.imageThumb, d.imageUrl),
           plan: d.plan
             ? {
                 steps: (Array.isArray(d.plan.steps) ? d.plan.steps : [])

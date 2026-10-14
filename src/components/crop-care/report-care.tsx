@@ -331,6 +331,7 @@ export function CareJourney({
   moreBusy?: boolean;
 }) {
   const [diaryOpen, setDiaryOpen] = useState(false);
+  const [followupTreatmentId, setFollowupTreatmentId] = useState("");
   const [followup, setFollowup] = useState<CareEvent["outcome"] | null>(null);
   const [stepIndex, setStepIndex] = useState(0),
     [busy, setBusy] = useState(false),
@@ -344,13 +345,17 @@ export function CareJourney({
       !e.voidedAt &&
       e.suggestion?.title === step?.title,
   );
-  const recent = [...events.items]
+  const [treatmentOpen, setTreatmentOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
+  const applied = events.items
+    .filter((e) => e.kind === "applied" && !e.voidedAt)
     .sort(
       (a, b) =>
         b.occurredOn.localeCompare(a.occurredOn) ||
         b.createdAt.localeCompare(a.createdAt),
-    )
-    .slice(0, 3);
+    );
+  const latest = applied[0];
+  const observation = latest ? latestOutcome(events.items, latest.id) : null;
   async function plan() {
     if (busy || !step) return;
     setBusy(true);
@@ -388,157 +393,209 @@ export function CareJourney({
     ) : null;
   return (
     <div className="space-y-4">
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        <section className={panel}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-emerald-950">
-              <Sprout className="h-5 w-5" />
-              Care diary
-            </h3>
+      <section className={panel} aria-label="Care for this crop">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-emerald-950">
+            <Sprout className="h-5 w-5" />
+            Care for this crop
+          </h3>
+          <Button size="sm" variant="ghost" onClick={() => setDiaryOpen(true)}>
+            View care history
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <h4 className="font-semibold text-emerald-950">
+              AI suggested care
+            </h4>
+            <p className="mb-3 mt-1 text-xs text-slate-500">
+              Recommended in this report.
+            </p>
             <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setDiaryOpen(true)}
+              variant="outline"
+              className="w-full"
+              onClick={() => setPlanOpen(true)}
             >
-              View all entries
+              View care plan
             </Button>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Treatments and observations saved in this season.
-          </p>
-          <ol className="my-5 space-y-4">
-            {recent.map((e) => (
-              <li
-                key={e.id}
-                className={`border-l-2 border-emerald-200 pl-3 ${e.voidedAt ? "opacity-60" : ""}`}
+          <div className="rounded-xl border border-emerald-100 p-4">
+            <h4 className="font-semibold text-emerald-950">What I used</h4>
+            <p className="mb-3 mt-1 text-xs text-slate-500">
+              Save what you actually applied or did.
+            </p>
+            {!readOnly ? (
+              <Button
+                className={primary + " w-full"}
+                onClick={() => setTreatmentOpen(true)}
               >
-                <span className="text-xs text-slate-500">
-                  {date(e.occurredOn)}
-                </span>
-                <p className="mt-1 break-words text-sm font-medium">
-                  {e.kind === "followup" ? e.outcome : e.product}
-                </p>
-                <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
-                  {e.voidedAt
-                    ? "Voided"
-                    : e.kind === "planned"
-                      ? "Planned · not applied"
-                      : e.kind === "applied"
-                        ? "Actually used"
-                        : "Your observation"}
-                </span>
-              </li>
-            ))}
-            {!recent.length && (
-              <li className="text-sm text-slate-500">
-                No care entries yet. Record what you actually used or performed.
-              </li>
-            )}
-          </ol>
-          {!readOnly && (
-            <div className="border-t border-emerald-100 pt-4">
-              <p className="text-sm font-medium">How is your crop now?</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ["Better", "Improved"],
-                    ["Same", "No change"],
-                    ["Worse", "Worsened"],
-                  ] as const
-                ).map(([label, value]) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant="outline"
-                    className="px-2"
-                    onClick={() => setFollowup(value)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                Choose a saved treatment and date before saving your update.
+                <Plus className="mr-2 h-4 w-4" />
+                Add treatment
+              </Button>
+            ) : (
+              <p className="text-sm text-slate-600">
+                Shared treatments appear below.
               </p>
+            )}
+          </div>
+        </div>
+        {latest ? (
+          <div className="mt-4 rounded-xl border border-slate-100 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">
+                  {events.nextCursor
+                    ? "Saved treatment"
+                    : "Most recent saved treatment"}
+                </p>
+                <p className="mt-1 break-words font-semibold text-emerald-950">
+                  {latest.product}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Used {date(latest.occurredOn)}
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">
+                Actually used
+              </span>
             </div>
-          )}
-        </section>
-        {!readOnly && (
+            <p className="mt-3 text-sm text-slate-600">
+              {observation
+                ? `Your update: ${observation.outcome} · ${date(observation.occurredOn)}`
+                : "No condition update saved yet."}
+            </p>
+            {!readOnly && (
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <p className="mb-2 text-sm font-medium">
+                  How is your crop now?
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      ["Better", "Improved"],
+                      ["Same", "No change"],
+                      ["Worse", "Worsened"],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      className="px-2"
+                      onClick={() => {
+                        setFollowupTreatmentId(latest.id);
+                        setFollowup(value);
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Your observation after this treatment.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">
+            No treatment recorded yet. Add one when you use a product or care
+            for this crop.
+          </p>
+        )}
+      </section>
+      <Dialog open={treatmentOpen} onOpenChange={setTreatmentOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>What did you use?</DialogTitle>
+            <DialogDescription>
+              {season.crop} · {season.field} · {season.label}. Linked to this
+              report automatically.
+            </DialogDescription>
+          </DialogHeader>
           <EventComposer
-            key={report.id + season.id}
+            simple
             compact
             report={report}
             season={season}
             events={events.items}
             api={api}
             reports={reports}
-            onSaved={onChanged}
+            onSaved={() => {
+              setTreatmentOpen(false);
+              onChanged();
+            }}
           />
-        )}
-      </div>
-      <details className={panel + " group"}>
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold text-emerald-900">
-          AI suggested care{" "}
-          <ChevronDown className="h-4 w-4 group-open:rotate-180" />
-        </summary>
-        <p className="mt-3 text-xs text-slate-500">
-          From this diagnosis report. Suggestions are separate from treatments
-          actually used.
-        </p>
-        {report.plan?.steps.length ? (
-          <div className="mt-4 space-y-3">
-            <Label htmlFor="care-step">Suggested care step</Label>
-            <select
-              id="care-step"
-              className={select}
-              value={stepIndex}
-              onChange={(e) => setStepIndex(Number(e.target.value))}
-            >
-              {report.plan.steps.map((s, i) => (
-                <option key={i} value={i}>
-                  {i + 1}. {s.title}
-                </option>
-              ))}
-            </select>
-            {step && (
-              <div className="space-y-2 text-sm">
-                <p>{step.description}</p>
-                {step.materials.length > 0 && (
-                  <p>
-                    <strong>Suggested materials:</strong>{" "}
-                    {step.materials.join(", ")}
-                  </p>
-                )}
-                {step.timing && (
-                  <p>
-                    <strong>Timing:</strong> {step.timing}
-                  </p>
-                )}
-                {step.safetyNotes && <p>{step.safetyNotes}</p>}
-              </div>
-            )}
-            {!readOnly && (
-              <Button
-                className={primary}
-                disabled={busy || planned || season.status === "completed"}
-                onClick={plan}
-              >
-                {planned ? "Plan recorded · not applied" : "I plan to use this"}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-slate-600">
-            No treatment plan was saved. You can still record the care or
-            monitoring you performed.
+        </DialogContent>
+      </Dialog>
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>AI suggested care</DialogTitle>
+            <DialogDescription>
+              Care plan from the selected report.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="mt-3 text-xs text-slate-500">
+            From this diagnosis report. Suggestions are separate from treatments
+            actually used.
           </p>
-        )}
-        <p className="mt-3 text-xs text-slate-500">
-          Check the product label and local authorization before use. A past
-          product or dose is not automatically suitable today.
-        </p>
-        {error && <ErrorBox>{error}</ErrorBox>}
-      </details>
+          {report.plan?.steps.length ? (
+            <div className="mt-4 space-y-3">
+              <Label htmlFor="care-step">Suggested care step</Label>
+              <select
+                id="care-step"
+                className={select}
+                value={stepIndex}
+                onChange={(e) => setStepIndex(Number(e.target.value))}
+              >
+                {report.plan.steps.map((s, i) => (
+                  <option key={i} value={i}>
+                    {i + 1}. {s.title}
+                  </option>
+                ))}
+              </select>
+              {step && (
+                <div className="space-y-2 text-sm">
+                  <p>{step.description}</p>
+                  {step.materials.length > 0 && (
+                    <p>
+                      <strong>Suggested materials:</strong>{" "}
+                      {step.materials.join(", ")}
+                    </p>
+                  )}
+                  {step.timing && (
+                    <p>
+                      <strong>Timing:</strong> {step.timing}
+                    </p>
+                  )}
+                  {step.safetyNotes && <p>{step.safetyNotes}</p>}
+                </div>
+              )}
+              {!readOnly && (
+                <Button
+                  className={primary}
+                  disabled={busy || planned || season.status === "completed"}
+                  onClick={plan}
+                >
+                  {planned
+                    ? "Plan recorded · not applied"
+                    : "I plan to use this"}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">
+              No treatment plan was saved. You can still record the care or
+              monitoring you performed.
+            </p>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            Check the product label and local authorization before use. A past
+            product or dose is not automatically suitable today.
+          </p>
+          {error && <ErrorBox>{error}</ErrorBox>}
+        </DialogContent>
+      </Dialog>
       <Dialog open={diaryOpen} onOpenChange={setDiaryOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
@@ -548,6 +605,17 @@ export function CareJourney({
               separate.
             </DialogDescription>
           </DialogHeader>
+          {!readOnly && applied.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFollowupTreatmentId("");
+                setFollowup("Not yet checked");
+              }}
+            >
+              Add condition update
+            </Button>
+          )}
           <CareTimeline
             events={events.items}
             seasonId={season.id}
@@ -573,8 +641,10 @@ export function CareJourney({
           </DialogHeader>
           {followup && (
             <EventComposer
-              key={followup}
+              key={followup + followupTreatmentId}
               compact
+              simple
+              initialTreatmentId={followupTreatmentId}
               initialKind="followup"
               initialOutcome={followup}
               report={report}
@@ -977,11 +1047,11 @@ export default function ReportCare({
             className="h-auto w-full justify-between gap-2 whitespace-normal p-4 text-left"
             onClick={() => setCareOpen(true)}
           >
-            <span>Care diary & treatments</span>
+            <span>What I used & crop care</span>
             <ChevronDown className="h-4 w-4 shrink-0" />
           </Button>
           <Dialog open={careOpen} onOpenChange={setCareOpen}>
-            <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
+            <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Care for {report.crop}</DialogTitle>
                 <DialogDescription>

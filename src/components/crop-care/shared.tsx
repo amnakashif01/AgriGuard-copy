@@ -320,6 +320,8 @@ export function EventComposer({
   reports = [],
   initialKind = "applied",
   initialOutcome = "Not yet checked",
+  initialTreatmentId = "",
+  simple = false,
   compact = false,
 }: {
   report: CareReport;
@@ -330,6 +332,8 @@ export function EventComposer({
   reports?: CareReport[];
   initialKind?: "applied" | "followup";
   initialOutcome?: CareEvent["outcome"];
+  initialTreatmentId?: string;
+  simple?: boolean;
   compact?: boolean;
 }) {
   const formId = useId();
@@ -337,11 +341,11 @@ export function EventComposer({
     [product, setProduct] = useState(""),
     [category, setCategory] = useState<
       "pesticide" | "cultural" | "biological" | "monitoring" | "other"
-    >("pesticide"),
+    >(simple ? "other" : "pesticide"),
     [occurredOn, setOccurredOn] = useState(season.endedOn || today()),
     [notes, setNotes] = useState(""),
     [outcome, setOutcome] = useState<(typeof outcomes)[number]>(initialOutcome),
-    [treatmentId, setTreatmentId] = useState(""),
+    [treatmentId, setTreatmentId] = useState(initialTreatmentId),
     [image, setImage] = useState<string>(),
     [followupReportId, setFollowupReportId] = useState(""),
     [busy, setBusy] = useState(false),
@@ -395,36 +399,40 @@ export function EventComposer({
     }
   }
   return (
-    <section className={panel}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-semibold">
-          {kind === "applied" ? "What I Used" : "Add a follow-up observation"}
-        </h3>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={kind === "applied" ? "default" : "outline"}
-            onClick={() => setKind("applied")}
-          >
-            Treatment
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={kind === "followup" ? "default" : "outline"}
-            onClick={() => setKind("followup")}
-          >
-            Follow-up
-          </Button>
+    <section className={simple ? "" : panel}>
+      {!simple && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold">
+            {kind === "applied" ? "What I Used" : "Add a follow-up observation"}
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={kind === "applied" ? "default" : "outline"}
+              onClick={() => setKind("applied")}
+            >
+              Treatment
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={kind === "followup" ? "default" : "outline"}
+              onClick={() => setKind("followup")}
+            >
+              Follow-up
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       <form onSubmit={submit} className="space-y-4">
         {kind === "applied" ? (
           <>
             <div>
               <Label htmlFor={`${formId}-care-product`}>
-                Pesticide / treatment actually used
+                {simple
+                  ? "Product or care action"
+                  : "Pesticide / treatment actually used"}
               </Label>
               <Input
                 id={`${formId}-care-product`}
@@ -438,54 +446,78 @@ export function EventComposer({
                 Record what you used, even if it differs from the AI suggestion.
               </p>
             </div>
-            <details className="text-sm">
-              <summary className="cursor-pointer font-medium text-emerald-800">
-                Treatment type ·{" "}
-                {category === "pesticide" ? "Pesticide" : category}
-              </summary>
-              <Label htmlFor={`${formId}-care-category`} className="mt-3 block">
-                Treatment category
-              </Label>
-              <select
-                id={`${formId}-care-category`}
-                className={select}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as typeof category)}
-              >
-                <option value="pesticide">
-                  Pesticide / crop-protection product
-                </option>
-                <option value="cultural">
-                  Cultivation / watering / pruning
-                </option>
-                <option value="biological">Biological control</option>
-                <option value="monitoring">
-                  Monitoring / no product applied
-                </option>
-                <option value="other">Other</option>
-              </select>
-            </details>
+            {!simple && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium text-emerald-800">
+                  Treatment type ·{" "}
+                  {category === "pesticide" ? "Pesticide" : category}
+                </summary>
+                <Label
+                  htmlFor={`${formId}-care-category`}
+                  className="mt-3 block"
+                >
+                  Treatment category
+                </Label>
+                <select
+                  id={`${formId}-care-category`}
+                  className={select}
+                  value={category}
+                  onChange={(e) =>
+                    setCategory(e.target.value as typeof category)
+                  }
+                >
+                  <option value="pesticide">
+                    Pesticide / crop-protection product
+                  </option>
+                  <option value="cultural">
+                    Cultivation / watering / pruning
+                  </option>
+                  <option value="biological">Biological control</option>
+                  <option value="monitoring">
+                    Monitoring / no product applied
+                  </option>
+                  <option value="other">Other</option>
+                </select>
+              </details>
+            )}
           </>
         ) : (
           <>
             <div>
-              <Label htmlFor={`${formId}-care-treatment`}>
-                Which applied treatment?
-              </Label>
-              <select
-                id={`${formId}-care-treatment`}
-                className={select}
-                required
-                value={treatmentId}
-                onChange={(e) => setTreatmentId(e.target.value)}
-              >
-                <option value="">Choose a saved treatment</option>
-                {applied.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.product} · {date(e.occurredOn)}
-                  </option>
-                ))}
-              </select>
+              {simple && initialTreatmentId ? (
+                <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
+                  <strong>
+                    {applied.find((e) => e.id === treatmentId)?.product}
+                  </strong>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    Applied{" "}
+                    {date(
+                      applied.find((e) => e.id === treatmentId)?.occurredOn ||
+                        "",
+                    )}
+                  </span>
+                </p>
+              ) : (
+                <>
+                  <Label htmlFor={`${formId}-care-treatment`}>
+                    Which applied treatment?
+                  </Label>
+                  <select
+                    id={`${formId}-care-treatment`}
+                    className={select}
+                    required
+                    value={treatmentId}
+                    onChange={(e) => setTreatmentId(e.target.value)}
+                  >
+                    <option value="">Choose a saved treatment</option>
+                    {applied.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.product} · {date(e.occurredOn)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               {!applied.length && (
                 <p className="mt-2 text-sm text-slate-500">
                   Record your treatment or monitoring action first.
@@ -507,7 +539,7 @@ export function EventComposer({
                 ))}
               </select>
             </div>
-            {reports.length > 1 && (
+            {!simple && reports.length > 1 && (
               <div>
                 <Label htmlFor={`${formId}-care-followup-report`}>
                   Follow-up diagnosis (optional)
@@ -535,16 +567,21 @@ export function EventComposer({
             )}
           </>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className={simple ? "" : "grid gap-4 sm:grid-cols-2"}>
           <div>
             <Label htmlFor={`${formId}-care-date`}>
-              {kind === "applied" ? "Applied / performed on" : "Follow-up date"}
+              {kind === "applied" ? "Date used" : "Date observed"}
             </Label>
             <Input
               id={`${formId}-care-date`}
               required
               type="date"
-              min={season.startedOn}
+              min={
+                kind === "followup"
+                  ? applied.find((e) => e.id === treatmentId)?.occurredOn ||
+                    season.startedOn
+                  : season.startedOn
+              }
               max={season.endedOn || today()}
               value={occurredOn}
               onChange={(e) => setOccurredOn(e.target.value)}
