@@ -1,17 +1,21 @@
 import type {NextConfig} from 'next';
 
 const diagnosticAssets = ['./models/plant-disease/detector.onnx', './models/crop-disease/davit.onnx'];
+const diagnosticRuntime = ['./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/*'];
 const diagnosisRoutes = [
-  '/dashboard', '/report/new', '/report/*',
-  '/my-crops/*/new', '/my-crops/*/*', '/my-crops/*/*/new',
+  '/dashboard', '/report/new', '/report/\\[id\\]',
+  '/my-crops/\\[cropId\\]/new',
+  '/my-crops/\\[cropId\\]/\\[plantId\\]',
+  '/my-crops/\\[cropId\\]/\\[plantId\\]/new',
   '/api/coordinator/tasks', '/api/coordinator/process/pending',
 ];
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['onnxruntime-node', 'sharp'],
   outputFileTracingIncludes: {
-    '/*': ['./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/*'],
-    ...Object.fromEntries(diagnosisRoutes.map(route => [route, diagnosticAssets])),
+    // Force model/runtime assets only where inference runs. Other routes keep
+    // their automatically traced dependencies without an extra native bundle.
+    ...Object.fromEntries(diagnosisRoutes.map(route => [route, [...diagnosticAssets, ...diagnosticRuntime]])),
   },
   outputFileTracingExcludes: {
     '/*': ['./node_modules/onnxruntime-node/bin/napi-v6/darwin/**/*', './node_modules/onnxruntime-node/bin/napi-v6/win32/**/*', './node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/**/*', './node_modules/onnxruntime-node/bin/napi-v6/linux/x64/*cuda*', './node_modules/onnxruntime-node/bin/napi-v6/linux/x64/*tensorrt*'],
