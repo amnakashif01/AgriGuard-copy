@@ -25,7 +25,7 @@ export function PlantsPage({ cropId }: { cropId: string }) {
       wide
       title={crop?.name || "Your crop"}
       eyebrow="MY CROPS"
-      subtitle="Reports, progress and care — together for every growing season."
+      subtitle="See how your crop is doing and keep track of its care."
       back={{ href: "/my-crops", label: "All my crops" }}
     >
       <LoadState loading={loading} error={error} missing={!loading && !crop} />
@@ -43,7 +43,7 @@ export function PlantsPage({ cropId }: { cropId: string }) {
                     htmlFor="crop-plant"
                     className="text-sm font-medium text-emerald-950"
                   >
-                    Plant / growing area
+                    Plant or field
                   </label>
                   <select
                     id="crop-plant"
@@ -51,7 +51,9 @@ export function PlantsPage({ cropId }: { cropId: string }) {
                     value={plantId}
                     onChange={(e) => setPlantId(e.target.value)}
                   >
-                    <option value="">All growing areas · {crop.name}</option>
+                    <option value="">
+                      All plants and fields · {crop.name}
+                    </option>
                     {plants.data.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} · {p.code}
@@ -91,8 +93,8 @@ export function PlantsPage({ cropId }: { cropId: string }) {
               {!plants.data.length && (
                 <p className="flex items-center gap-2 text-sm text-slate-500">
                   <Sprout className="h-4 w-4 shrink-0" />
-                  Track a field by season, or add a named plant for repeat-photo
-                  comparisons.
+                  Choose a season to see your field reports. You can also add a
+                  plant and check it again later.
                 </p>
               )}
             </CropWorkspace>
