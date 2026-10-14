@@ -26,6 +26,19 @@ const report: CareReport = {
   plantId: "",
   fieldId: "",
 };
+
+test("crop progress compares damage without mixing seasons or guessing missing levels", async () => {
+  const { cropDamageChange } = await import("../src/lib/crop-care/report-photos");
+  const current = { ...report, careSeasonId: "new-season", cropId: "wheat", plantId: "plant-a" };
+  const previous = { ...current, id: "earlier", createdAt: "2026-02-01T10:00:00Z", severity: "Low" };
+  assert.equal(cropDamageChange(previous, current)?.direction, "higher");
+  assert.equal(cropDamageChange({ ...previous, severity: "High" }, current)?.direction, "lower");
+  assert.equal(cropDamageChange({ ...previous, severity: "Medium" }, current)?.direction, "same");
+  assert.equal(cropDamageChange({ ...previous, severity: "" }, current), null);
+  assert.equal(cropDamageChange(previous, { ...current, severity: "Unknown" }), null);
+  assert.equal(cropDamageChange({ ...previous, careSeasonId: "old-season" }, current), null);
+  assert.equal(cropDamageChange({ ...previous, plantId: "plant-b" }, current), null);
+});
 test("crop aliases preserve identity without merging different crops", () => {
   assert.equal(cropKey("  Corn  "), "maize");
   assert.equal(cropKey("گندم"), "wheat");
