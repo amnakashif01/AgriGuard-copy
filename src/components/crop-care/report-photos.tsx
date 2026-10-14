@@ -18,7 +18,7 @@ function ReportPhoto({ report, title }: { report: CareReport; title: string }) {
       </div>
       <Link
         href={`/report/${report.id}`}
-        className="flex aspect-[16/10] max-h-80 items-center justify-center bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+        className="flex aspect-[16/10] max-h-80 w-full items-center justify-center bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
         aria-label={`Open ${title.toLowerCase()} from ${date(report.createdAt)}`}
       >
         {report.image && !failed ? (
