@@ -1,4 +1,5 @@
 "use client";
+import { outcomeText } from "@/lib/crop-care/display";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -71,26 +72,28 @@ function HistoryMatch({
   );
   const shown = summary ? treatments.slice(-1) : treatments;
   return (
-    <article className="min-w-0 rounded-xl border border-emerald-100 bg-white p-4">
+    <article className="min-w-0 rounded-xl border border-amber-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h4 className="font-semibold text-emerald-950">
-            {m.season?.label || "Season not assigned"}
+          <h4 className="font-semibold text-amber-950">
+            {m.season?.label || "No season chosen"}
           </h4>
           <p className="mt-1 text-xs text-slate-500">
             {date(m.report.createdAt)}
             {m.season
-              ? ` · ${m.season.status === "completed" ? "Harvested crop cycle" : "Separate crop cycle"}`
-              : " · Planting not confirmed"}
+              ? ` · ${m.season.status === "completed" ? "Harvested" : "Earlier season"}`
+              : "  · No season chosen"}
           </p>
         </div>
-        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
-          {m.match === "same" ? "Same saved diagnosis" : "Similar / uncertain"}
+        <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-xs text-amber-900">
+          {m.match === "same"
+            ? "Same problem in both reports"
+            : "May be the same problem"}
         </span>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
-          <p className="text-xs text-slate-500">Earlier issue</p>
+          <p className="text-xs text-slate-500">Earlier problem</p>
           <p className="mt-1 break-words text-sm font-medium">
             {m.report.disease}
           </p>
@@ -104,7 +107,7 @@ function HistoryMatch({
               return (
                 <div key={e.id} className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-slate-500">You recorded using</p>
+                    <p className="text-xs text-slate-500">What you used</p>
                     <p className="mt-1 break-words text-sm font-medium">
                       {e.product}
                     </p>
@@ -115,9 +118,11 @@ function HistoryMatch({
                     )}
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Your follow-up</p>
+                    <p className="text-xs text-slate-500">
+                      How the crop changed
+                    </p>
                     <p className="mt-1 text-sm font-medium text-emerald-800">
-                      {outcome?.outcome ||
+                      {(outcome ? outcomeText(outcome.outcome) : "") ||
                         (m.moreCareAvailable
                           ? "Open full record"
                           : "Not recorded")}
@@ -127,18 +132,18 @@ function HistoryMatch({
               );
             })
           ) : (
-            <p className="text-sm text-slate-500">
-              No actual treatment was recorded.
-            </p>
+            <p className="text-sm text-slate-500">No treatment saved.</p>
           )}
         </div>
       </div>
       {!summary && (
         <p className="mt-3 text-xs leading-5 text-slate-500">
           {m.explanation}
-          {m.fieldRelation === "different" ? " Different growing area." : ""}
+          {m.fieldRelation === "different"
+            ? "  From another field or plant."
+            : ""}
           {m.moreCareAvailable
-            ? " More care entries are available in the saved report."
+            ? "  Open the report to see more care history."
             : ""}
         </p>
       )}
@@ -148,7 +153,7 @@ function HistoryMatch({
         </Button>
       ) : (
         <Link
-          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-emerald-800 underline"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-amber-900 underline"
           href={`/report/${m.report.id}`}
         >
           Open past record <ArrowRight className="h-3 w-3" />
@@ -223,21 +228,21 @@ export function HistoricalInsights({
   const first = known || matches[0];
   const loadMore = data?.nextCursor ? (
     <Button type="button" variant="outline" disabled={busy} onClick={more}>
-      {busy ? "Loading…" : "Check more history across all years"}
+      {busy ? "Loading…" : "Check more past records"}
     </Button>
   ) : null;
   return (
     <>
       <section
         aria-label="Earlier crop history"
-        className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5"
+        className="min-w-0 rounded-2xl border border-amber-300 border-l-4 bg-amber-50 p-4 sm:p-5"
       >
-        <h3 className="flex items-center gap-2 font-semibold text-emerald-950">
+        <h3 className="flex items-center gap-2 font-semibold text-amber-950">
           <History className="h-5 w-5 shrink-0" />
           {known
-            ? "Found in an earlier season"
+            ? "A similar problem happened before"
             : first
-              ? "Similar earlier record"
+              ? "A past report may match"
               : "Your past crop records"}
         </h3>
         {busy && !data && <Busy>Checking your saved crop history…</Busy>}
@@ -253,16 +258,16 @@ export function HistoricalInsights({
             ) : (
               <p className="text-sm text-slate-600">
                 {data.nextCursor
-                  ? "No match in the records checked so far. Check more history below."
+                  ? "No match found yet. Check more past records below."
                   : data.previousCount
-                    ? "No matching disease or pest found in the earlier records checked."
-                    : "No earlier record found for this crop yet."}
+                    ? "This problem was not found in your past reports."
+                    : "No past reports for this crop yet."}
               </p>
             )}
             {first && (
               <p className="text-xs leading-5 text-slate-500">
-                Past treatment and improvement are your saved observations. They
-                do not automatically become today’s recommendation.
+                This is what you used before and how your crop changed. Check
+                the current care plan before using it again.
               </p>
             )}
             <div className="flex flex-wrap gap-2">
@@ -286,8 +291,8 @@ export function HistoricalInsights({
           <DialogHeader>
             <DialogTitle>Past seasons & crop records</DialogTitle>
             <DialogDescription>
-              Earlier crop cycles stay separate from this season. Matches use
-              saved diagnosis labels.
+              These are older crops. We compare the problem names in your saved
+              reports.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -296,8 +301,8 @@ export function HistoricalInsights({
             ))}
             {Boolean(data?.unassignedCount) && (
               <p className="text-xs text-slate-500">
-                {data?.unassignedCount} earlier reports have no assigned season.
-                Their dates alone do not establish a planting.
+                {data?.unassignedCount} older reports need a season. Open them
+                and choose the right season.
               </p>
             )}
             {loadMore}
@@ -380,7 +385,7 @@ export function CareJourney({
       requestId.current = crypto.randomUUID();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not record the plan.");
+      setError(e instanceof Error ? e.message : "Could not save the plan.");
     } finally {
       setBusy(false);
     }
@@ -388,7 +393,7 @@ export function CareJourney({
   const more =
     events.nextCursor && onMore ? (
       <Button variant="outline" size="sm" disabled={moreBusy} onClick={onMore}>
-        {moreBusy ? "Loading…" : "Load more care entries"}
+        {moreBusy ? "Loading…" : "Show more care history"}
       </Button>
     ) : null;
   return (
@@ -409,7 +414,7 @@ export function CareJourney({
               AI suggested care
             </h4>
             <p className="mb-3 mt-1 text-xs text-slate-500">
-              Recommended in this report.
+              Care suggested for this crop.
             </p>
             <Button
               variant="outline"
@@ -422,7 +427,7 @@ export function CareJourney({
           <div className="rounded-xl border border-emerald-100 p-4">
             <h4 className="font-semibold text-emerald-950">What I used</h4>
             <p className="mb-3 mt-1 text-xs text-slate-500">
-              Save what you actually applied or did.
+              Add the product you used or the care you gave.
             </p>
             {!readOnly ? (
               <Button
@@ -446,7 +451,7 @@ export function CareJourney({
                 <p className="text-xs text-slate-500">
                   {events.nextCursor
                     ? "Saved treatment"
-                    : "Most recent saved treatment"}
+                    : "Last treatment used"}
                 </p>
                 <p className="mt-1 break-words font-semibold text-emerald-950">
                   {latest.product}
@@ -456,13 +461,13 @@ export function CareJourney({
                 </p>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">
-                Actually used
+                Used
               </span>
             </div>
             <p className="mt-3 text-sm text-slate-600">
               {observation
-                ? `Your update: ${observation.outcome} · ${date(observation.occurredOn)}`
-                : "No condition update saved yet."}
+                ? `Your update: ${outcomeText(observation.outcome)} · ${date(observation.occurredOn)}`
+                : "No update yet."}
             </p>
             {!readOnly && (
               <div className="mt-3 border-t border-slate-100 pt-3">
@@ -491,15 +496,14 @@ export function CareJourney({
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Your observation after this treatment.
+                  Tell us what you noticed after treatment.
                 </p>
               </div>
             )}
           </div>
         ) : (
           <p className="mt-4 text-sm text-slate-500">
-            No treatment recorded yet. Add one when you use a product or care
-            for this crop.
+            No treatment saved yet. Add what you used or did for this crop.
           </p>
         )}
       </section>
@@ -508,8 +512,8 @@ export function CareJourney({
           <DialogHeader>
             <DialogTitle>What did you use?</DialogTitle>
             <DialogDescription>
-              {season.crop} · {season.field} · {season.label}. Linked to this
-              report automatically.
+              {season.crop} · {season.field} · {season.label}. Saved with this
+              report.
             </DialogDescription>
           </DialogHeader>
           <EventComposer
@@ -531,17 +535,15 @@ export function CareJourney({
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>AI suggested care</DialogTitle>
-            <DialogDescription>
-              Care plan from the selected report.
-            </DialogDescription>
+            <DialogDescription>Care plan for this report.</DialogDescription>
           </DialogHeader>
           <p className="mt-3 text-xs text-slate-500">
-            From this diagnosis report. Suggestions are separate from treatments
-            actually used.
+            This is the suggested plan. Add what you actually use in What I
+            used.
           </p>
           {report.plan?.steps.length ? (
             <div className="mt-4 space-y-3">
-              <Label htmlFor="care-step">Suggested care step</Label>
+              <Label htmlFor="care-step">Choose a care step</Label>
               <select
                 id="care-step"
                 className={select}
@@ -559,13 +561,13 @@ export function CareJourney({
                   <p>{step.description}</p>
                   {step.materials.length > 0 && (
                     <p>
-                      <strong>Suggested materials:</strong>{" "}
+                      <strong>What you need:</strong>{" "}
                       {step.materials.join(", ")}
                     </p>
                   )}
                   {step.timing && (
                     <p>
-                      <strong>Timing:</strong> {step.timing}
+                      <strong>When:</strong> {step.timing}
                     </p>
                   )}
                   {step.safetyNotes && <p>{step.safetyNotes}</p>}
@@ -577,21 +579,18 @@ export function CareJourney({
                   disabled={busy || planned || season.status === "completed"}
                   onClick={plan}
                 >
-                  {planned
-                    ? "Plan recorded · not applied"
-                    : "I plan to use this"}
+                  {planned ? "Planned · not used yet" : "I plan to use this"}
                 </Button>
               )}
             </div>
           ) : (
             <p className="mt-3 text-sm text-slate-600">
-              No treatment plan was saved. You can still record the care or
-              monitoring you performed.
+              No care plan saved. You can still add what you used or did.
             </p>
           )}
           <p className="mt-3 text-xs text-slate-500">
-            Check the product label and local authorization before use. A past
-            product or dose is not automatically suitable today.
+            Before spraying, check that the product is allowed for your crop and
+            pest. Follow its label. An old treatment may not suit this crop.
           </p>
           {error && <ErrorBox>{error}</ErrorBox>}
         </DialogContent>
@@ -599,10 +598,9 @@ export function CareJourney({
       <Dialog open={diaryOpen} onOpenChange={setDiaryOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Full care diary</DialogTitle>
+            <DialogTitle>Care history</DialogTitle>
             <DialogDescription>
-              Planned care, actual treatments and dated follow-ups remain
-              separate.
+              See what was planned, what you used, and how the crop changed.
             </DialogDescription>
           </DialogHeader>
           {!readOnly && applied.length > 0 && (
@@ -613,7 +611,7 @@ export function CareJourney({
                 setFollowup("Not yet checked");
               }}
             >
-              Add condition update
+              Add crop update
             </Button>
           )}
           <CareTimeline
@@ -634,9 +632,9 @@ export function CareJourney({
       >
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Update crop condition</DialogTitle>
+            <DialogTitle>How is your crop now?</DialogTitle>
             <DialogDescription>
-              Record your observation against an applied treatment.
+              Choose the treatment and tell us how your crop looks now.
             </DialogDescription>
           </DialogHeader>
           {followup && (
@@ -774,7 +772,11 @@ export default function ReportCare({
       );
       refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save this link.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not save the report to this season.",
+      );
     } finally {
       setBusy(false);
     }
@@ -798,7 +800,7 @@ export default function ReportCare({
   if (loading)
     return (
       <section className={panel}>
-        <Busy>Opening crop care… Your diagnosis is ready.</Busy>
+        <Busy>Loading crop care… Your report is ready.</Busy>
       </section>
     );
   if (!context)
@@ -806,7 +808,7 @@ export default function ReportCare({
       <section className={panel}>
         <ErrorBox>{error || "Care history could not be loaded."}</ErrorBox>
         <Button variant="outline" className="mt-3" onClick={refresh}>
-          Retry care history
+          Try again
         </Button>
       </section>
     );
@@ -828,7 +830,7 @@ export default function ReportCare({
     />
   ) : (
     <p className="text-sm text-slate-600">
-      Choose an existing crop season or create a new one to record your care.
+      Choose a season or start a new one to save your crop care.
     </p>
   );
   return (
@@ -889,18 +891,15 @@ export default function ReportCare({
               {scope.mode !== "owner" && (
                 <Button asChild variant="outline" size="sm">
                   <Link href={careRecordHref(season)}>
-                    Open crop & care <ArrowRight className="ml-2 h-4 w-4" />
+                    Open crop <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
               )}
               {!readOnly && (
                 <details className="text-xs text-slate-500">
-                  <summary className="cursor-pointer">
-                    Change linked season
-                  </summary>
+                  <summary className="cursor-pointer">Change season</summary>
                   <p className="my-2">
-                    Reports with saved care entries must keep their existing
-                    link.
+                    A report with care history must stay in its season.
                   </p>
                   <Button
                     size="sm"
@@ -915,7 +914,7 @@ export default function ReportCare({
             </div>
           ) : readOnly ? (
             <p className="text-sm text-slate-500">
-              No season has been assigned to this report.
+              No season chosen for this report.
             </p>
           ) : (
             <div className="space-y-4">
@@ -931,7 +930,7 @@ export default function ReportCare({
                     checked={choice === "existing"}
                     onChange={() => setChoice("existing")}
                   />
-                  Existing crop / season
+                  A saved season
                 </label>
                 {choice === "existing" && (
                   <div className="space-y-3">
@@ -955,8 +954,8 @@ export default function ReportCare({
                     </select>
                     {!eligible.length && (
                       <p className="text-xs text-slate-500">
-                        No matching record for this report’s date and plant yet.
-                        Create a season or load more records.
+                        No season matches this crop and date. Start a new season
+                        or show more seasons.
                       </p>
                     )}
                     {context.seasons.nextCursor && (
@@ -1023,12 +1022,12 @@ export default function ReportCare({
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {choice === "new"
-                  ? "Create & add report"
-                  : "Save to this record"}
+                  ? "Start season & save report"
+                  : "Save to this season"}
               </Button>
               <p className="text-xs text-slate-500">
-                Reports and care stay together. Each new planting has its own
-                season.
+                Your reports and care stay together. Start a new season when you
+                plant again.
               </p>
             </div>
           )}
@@ -1074,8 +1073,8 @@ export default function ReportCare({
           <DialogHeader>
             <DialogTitle>Create a new crop season</DialogTitle>
             <DialogDescription>
-              Choose the actual planting dates. This report will be added to the
-              new record.
+              Enter when you planted the crop. We will add this report to the
+              new season.
             </DialogDescription>
           </DialogHeader>
           <SeasonForm

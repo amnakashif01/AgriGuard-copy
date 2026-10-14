@@ -5,7 +5,10 @@ import { ArrowRight, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { CareReport } from "@/lib/crop-care/models";
-import { earlierCareReports } from "@/lib/crop-care/report-photos";
+import {
+  cropDamageChange,
+  earlierCareReports,
+} from "@/lib/crop-care/report-photos";
 import { Busy, date, ErrorBox, select, type CareApi } from "./shared";
 
 function ReportPhoto({ report, title }: { report: CareReport; title: string }) {
@@ -34,7 +37,7 @@ function ReportPhoto({ report, title }: { report: CareReport; title: string }) {
         ) : (
           <span className="flex flex-col items-center gap-2 px-4 text-center text-sm text-slate-500">
             <ImageOff className="h-7 w-7" />
-            Photo unavailable for this saved report
+            No photo saved for this report
           </span>
         )}
       </Link>
@@ -45,8 +48,8 @@ function ReportPhoto({ report, title }: { report: CareReport; title: string }) {
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {report.severity
-              ? `Severity: ${report.severity}`
-              : "Saved diagnosis"}
+              ? `Damage level: ${report.severity}`
+              : "Saved result"}
           </p>
         </div>
         <Button asChild size="sm" variant="link">
@@ -111,6 +114,9 @@ export function ReportPhotos({
     previous?.id === previousId && earlierCareReports([previous], report).length
       ? previous
       : null;
+  const damageChange = validPrevious
+    ? cropDamageChange(validPrevious, report)
+    : null;
   return (
     <section aria-label="Your tested report photos" className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -119,13 +125,13 @@ export function ReportPhotos({
             Your crop’s progress
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Your tested photos · same plant or field, same season
+            Photos from the same crop and season.
           </p>
         </div>
         {earlier.length > 0 && (
           <div className="min-w-0 sm:max-w-xs">
             <Label htmlFor={id} className="text-xs">
-              Compare with an earlier report
+              Choose an earlier report
             </Label>
             <select
               id={id}
@@ -164,8 +170,7 @@ export function ReportPhotos({
                 </div>
               ) : previous ? (
                 <p className="text-sm text-slate-500">
-                  This earlier report no longer belongs to the same planting.
-                  Refresh your crop.
+                  This report is now in another season. Refresh the page.
                 </p>
               ) : (
                 <Busy>Opening earlier photo…</Busy>
@@ -179,20 +184,28 @@ export function ReportPhotos({
         />
       </div>
       {validPrevious ? (
-        <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-          <strong>Saved report comparison:</strong> {validPrevious.disease} →{" "}
-          {report.disease}
-          {validPrevious.severity && report.severity
-            ? ` · Severity: ${validPrevious.severity} → ${report.severity}`
-            : ""}
+        <p
+          className={`rounded-xl border px-4 py-3 text-sm ${damageChange?.direction === "higher" ? "border-orange-200 bg-orange-50 text-orange-950" : damageChange?.direction === "lower" ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-slate-200 bg-slate-50 text-slate-800"}`}
+        >
+          <strong className="block">
+            {damageChange?.message || "Your saved report comparison"}
+          </strong>
+          {damageChange && (
+            <span className="mt-1 block">
+              Before: {validPrevious.severity} → Now: {report.severity}
+            </span>
+          )}
+          <span className="mt-1 block text-xs">
+            {validPrevious.disease} → {report.disease}
+          </span>
           <span className="mt-1 block text-xs text-slate-500">
-            Photo assessments over time; this does not confirm a treatment’s
-            effect.
+            Based on saved reports. Photos alone cannot show whether a treatment
+            worked.
           </span>
         </p>
       ) : !previousId ? (
         <p className="text-xs text-slate-500">
-          Add another report to this planting to see its photos side by side.
+          Add another report this season to compare photos.
         </p>
       ) : null}
     </section>

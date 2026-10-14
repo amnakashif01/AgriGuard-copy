@@ -1,4 +1,5 @@
 "use client";
+import { outcomeText } from "@/lib/crop-care/display";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -178,8 +179,8 @@ export default function CareDashboard({
             {crop ? crop + " — " : ""}Health & Care History
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Every planting has its own season. Keep diagnoses, actual treatments
-            and follow-ups together, and learn from earlier years.
+            See each season, its reports, what you used, and how your crop
+            changed.
           </p>
         </div>
         <div className="flex gap-2">
@@ -205,19 +206,18 @@ export default function CareDashboard({
         <div className={panel + " py-10 text-center"}>
           <Leaf className="mx-auto h-10 w-10 text-emerald-600" />
           <h3 className="mt-4 text-lg font-semibold">
-            Start a crop care journey
+            Start your crop history
           </h3>
           <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
-            Create a season for a field, plot or tree. After a diagnosis, add
-            its report to this record. Existing reports remain available in
-            Report History until you choose their season.
+            Start a season for your crop. Add new reports or choose from your
+            saved reports.
           </p>
           {!readOnly && (
             <Button
               className={"mt-5 " + primary}
               onClick={() => setCreateOpen(true)}
             >
-              Create first care record
+              Start first season
             </Button>
           )}
         </div>
@@ -225,9 +225,7 @@ export default function CareDashboard({
       {allSeasons.length > 0 && (
         <>
           <div className={panel}>
-            <Label htmlFor="care-season-picker">
-              Crop · growing area · season
-            </Label>
+            <Label htmlFor="care-season-picker">Crop · field · season</Label>
             <select
               id="care-season-picker"
               className={select + " mt-2"}
@@ -252,7 +250,7 @@ export default function CareDashboard({
                 disabled={busy}
                 onClick={() => more("seasons")}
               >
-                Load more seasons / years
+                Show more seasons
               </Button>
             )}
           </div>
@@ -300,8 +298,8 @@ export default function CareDashboard({
                     : "Growing"}{" "}
                   ·{" "}
                   {detail.season.status === "completed"
-                    ? "Harvested / completed"
-                    : "Active crop cycle"}
+                    ? "Harvested or finished"
+                    : "Growing now"}
                 </p>
               </div>
               {!readOnly && (
@@ -311,7 +309,7 @@ export default function CareDashboard({
                     size="sm"
                     onClick={() => setEditOpen(true)}
                   >
-                    Edit / finish season
+                    Edit season or mark harvested
                   </Button>
                   {scope.mode !== "owner" &&
                     detail.season.status === "active" && (
@@ -358,17 +356,16 @@ export default function CareDashboard({
               <section className={panel}>
                 <h3 className="flex items-center gap-2 font-semibold">
                   <FileText className="h-5 w-5 text-emerald-700" />
-                  Diagnosis history
+                  Crop reports
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  {detail.reports.items.length} reports loaded for this crop
-                  cycle
+                  {detail.reports.items.length} reports in this season
                 </p>
                 <div className="mt-4 space-y-3">
                   {!detail.reports.items.length && (
                     <p className="text-sm text-slate-500">
-                      No reports linked yet. Open a completed report and select
-                      this Health & Care record.
+                      No reports here yet. Open a saved report and choose this
+                      season.
                     </p>
                   )}
                   {[...detail.reports.items]
@@ -383,10 +380,10 @@ export default function CareDashboard({
                           {date(r.createdAt)}
                         </span>
                         <strong className="mt-1 block text-sm">
-                          {r.disease || "Diagnosis pending"}
+                          {r.disease || "Report not ready yet"}
                         </strong>
                         <span className="mt-2 inline-block text-xs text-emerald-800">
-                          Open report, treatment & follow-up →
+                          Open report & care →
                         </span>
                       </button>
                     ))}
@@ -417,7 +414,7 @@ export default function CareDashboard({
                     disabled={busy}
                     onClick={() => more("events")}
                   >
-                    Load more care entries
+                    Show more care history
                   </Button>
                 )}
               </div>
@@ -440,10 +437,9 @@ export default function CareDashboard({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create a Health & Care record</DialogTitle>
+            <DialogTitle>Start a crop season</DialogTitle>
             <DialogDescription>
-              A new planting or season gets a separate record. Old seasons
-              remain available for comparison.
+              Start a new season when you plant again. Older seasons stay saved.
             </DialogDescription>
           </DialogHeader>
           <SeasonForm
@@ -464,10 +460,10 @@ export default function CareDashboard({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit / complete this season</DialogTitle>
+            <DialogTitle>Edit or finish this season</DialogTitle>
             <DialogDescription>
-              Mark a harvested crop completed. New plantings should get a new
-              record.
+              Mark this season as finished after harvest. Start a new season for
+              the next crop.
             </DialogDescription>
           </DialogHeader>
           {detail && (
@@ -543,11 +539,10 @@ function SeasonComparison({
   return (
     <section className="space-y-4">
       <div className={panel}>
-        <h3 className="text-lg font-semibold">Compare growing seasons</h3>
+        <h3 className="text-lg font-semibold">Compare seasons</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Separate plantings, with their own diagnoses and farmer-reported
-          outcomes. This comparison does not claim the same plant improved
-          between years.
+          Compare two separate seasons: their problems, treatments and crop
+          updates.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {[
@@ -576,8 +571,8 @@ function SeasonComparison({
         </div>
         {eligible.length < 2 && (
           <p className="mt-3 text-sm text-slate-500">
-            Add another season for this crop when it is planted again, or assign
-            your historical reports to their actual seasons.
+            Add a season when you plant again. You can also add older reports to
+            the right season.
           </p>
         )}
         {left === right && left && (
@@ -602,7 +597,7 @@ function SeasonComparison({
               {date(d.season.startedOn)} –{" "}
               {d.season.endedOn ? date(d.season.endedOn) : "Active"}
             </p>
-            <h5 className="mt-5 text-sm font-semibold">Recorded diagnoses</h5>
+            <h5 className="mt-5 text-sm font-semibold">Problems found</h5>
             {d.reports.items.length ? (
               <ul className="mt-2 space-y-2 text-sm">
                 {[...new Set(d.reports.items.map((r) => r.disease))].map(
@@ -612,33 +607,28 @@ function SeasonComparison({
                 )}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">No reports linked.</p>
+              <p className="mt-2 text-sm text-slate-500">No reports saved.</p>
             )}
-            <h5 className="mt-5 text-sm font-semibold">
-              Actually applied / performed
-            </h5>
+            <h5 className="mt-5 text-sm font-semibold">What you used or did</h5>
             <p className="mt-2 text-sm text-slate-600">
               {d.events.items
                 .filter((e) => e.kind === "applied" && !e.voidedAt)
                 .map((e) => e.product)
                 .join(" · ") || "No treatment recorded"}
             </p>
-            <h5 className="mt-5 text-sm font-semibold">
-              Reported follow-up outcomes
-            </h5>
+            <h5 className="mt-5 text-sm font-semibold">How the crop changed</h5>
             <p className="mt-2 text-sm text-slate-600">
               {[
                 ...new Set(
                   d.events.items
                     .filter((e) => e.kind === "followup" && !e.voidedAt)
-                    .map((e) => e.outcome),
+                    .map((e) => outcomeText(e.outcome)),
                 ),
-              ].join(" · ") || "Not yet checked / not recorded"}
+              ].join(" · ") || "No update saved"}
             </p>
             {(d.reports.nextCursor || d.events.nextCursor) && (
               <p className="mt-3 text-xs text-amber-800">
-                Showing the first loaded batch. Open the season to load its
-                remaining reports and observations.
+                More records are available. Open the season to see them.
               </p>
             )}
             <Button
@@ -646,7 +636,7 @@ function SeasonComparison({
               className="mt-5"
               onClick={() => onChoose(d.season.id)}
             >
-              Open full season history
+              Open season history
             </Button>
           </article>
         ))}
