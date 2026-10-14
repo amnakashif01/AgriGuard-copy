@@ -122,8 +122,91 @@ test("follow-up history is chronological and ignores voided observations", () =>
   );
 });
 
-test('Pakistan midnight is consistent across browser dates, server validation and report linking', () => {
-  assert.equal(careDay('2026-10-13T21:00:00Z'), '2026-10-14');
-  assert.equal(reportFitsSeason({...report, createdAt: '2026-10-13T21:00:00Z'}, {crop:'Wheat', field:'Lahore field', label:'New cycle', startedOn:'2026-10-14', status:'active'}), null);
-  assert.equal(careDay('invalid'), '');
+test("Pakistan midnight is consistent across browser dates, server validation and report linking", () => {
+  assert.equal(careDay("2026-10-13T21:00:00Z"), "2026-10-14");
+  assert.equal(
+    reportFitsSeason(
+      { ...report, createdAt: "2026-10-13T21:00:00Z" },
+      {
+        crop: "Wheat",
+        field: "Lahore field",
+        label: "New cycle",
+        startedOn: "2026-10-14",
+        status: "active",
+      },
+    ),
+    null,
+  );
+  assert.equal(careDay("invalid"), "");
+});
+
+test("photo comparison stays within the explicit season, plant and field", async () => {
+  const { earlierCareReports } = await import(
+    "../src/lib/crop-care/report-photos"
+  );
+  const current = {
+    ...report,
+    careSeasonId: "season-new",
+    cropId: "wheat",
+    plantId: "plant-a",
+    fieldId: "field-a",
+  };
+  const previous = {
+    ...current,
+    id: "earlier",
+    createdAt: "2026-02-01T10:00:00Z",
+  };
+  const candidates = [
+    previous,
+    ...[
+      { careSeasonId: "season-old" },
+      { cropId: "tomato" },
+      { plantId: "plant-b" },
+      { fieldId: "field-b" },
+      { status: "Processing" },
+      { createdAt: "bad-date" },
+      { createdAt: current.createdAt },
+      { createdAt: "2026-04-01T10:00:00Z" },
+    ].map((patch, i) => ({ ...previous, id: `exclude-${i}`, ...patch })),
+  ];
+  assert.deepEqual(
+    earlierCareReports(candidates, current).map((r) => r.id),
+    ["earlier"],
+  );
+  assert.deepEqual(
+    earlierCareReports(candidates, { ...current, careSeasonId: "" }),
+    [],
+  );
+  const fieldCurrent = { ...current, plantId: "", fieldId: "" };
+  assert.equal(
+    earlierCareReports(
+      [{ ...previous, plantId: "", fieldId: "" }],
+      fieldCurrent,
+    ).length,
+    1,
+  );
+  assert.equal(earlierCareReports([previous], fieldCurrent).length, 0);
+});
+
+test("saved report photos remain complete above thumbnail size and reject unsafe data", async () => {
+  const { savedCarePhoto } = await import("../src/lib/crop-care/report-photos");
+  const full = "data:image/jpeg;base64," + "A".repeat(300000);
+  assert.equal(
+    savedCarePhoto(full),
+    full,
+    "must not truncate a saved analysis photo at 100k",
+  );
+  assert.equal(
+    savedCarePhoto("", full),
+    full,
+    "legacy imageUrl can supply the saved raster",
+  );
+  for (const bad of [
+    "javascript:alert(1)",
+    "data:image/svg+xml;base64,AAAA",
+    "data:image/png;base64,<bad>",
+    "data:image/png;base64," + "A".repeat(750001),
+  ]) {
+    assert.equal(savedCarePhoto(bad), "");
+  }
 });
