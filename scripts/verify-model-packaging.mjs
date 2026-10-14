@@ -19,6 +19,19 @@ async function inspect(directory) {
     const route = path.relative(root, file);
     const { files } = JSON.parse(await readFile(file, 'utf8'));
     const models = files.filter(item => item.endsWith('.onnx')).map(item => path.basename(item)).sort();
+    const runtimeFiles = files.filter(item => item.includes('/onnxruntime-node/bin/'));
+    const loadsRuntime = files.some(item => item.endsWith('/onnxruntime-node/dist/binding.js'));
+    // The binding loads its shared library at runtime. Check both, including
+    // routes that import shared AI code without running model inference.
+    if (loadsRuntime || expected.has(route)) {
+      for (const required of ['onnxruntime_binding.node', 'libonnxruntime.so.1']) {
+        if (!runtimeFiles.some(item => item.endsWith(`/linux/x64/${required}`))) {
+          throw new Error(`Missing ONNX CPU runtime ${required} in ${route}`);
+        }
+      }
+    } else if (runtimeFiles.length) {
+      throw new Error(`Unneeded ONNX runtime bundle in ${route}; remove broad tracing includes.`);
+    }
     if (expected.has(route)) {
       if (models.join(',') !== 'davit.onnx,detector.onnx') throw new Error(`Diagnosis models missing from ${route}`);
       expected.delete(route);
@@ -29,4 +42,4 @@ async function inspect(directory) {
 }
 await inspect(root);
 if (expected.size) throw new Error(`Missing diagnosis route traces: ${[...expected].join(', ')}`);
-console.log('Verified model packaging: both models in all 8 diagnosis routes; unrelated routes stay lightweight.');
+console.log('Verified model packaging: both models in all 8 diagnosis routes; CPU runtime retained wherever imported; unrelated routes stay lightweight.');
