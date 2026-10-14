@@ -1,5 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -29,7 +35,9 @@ import type {
   CareSeason,
 } from "@/lib/crop-care/models";
 import { useCropData } from "@/components/my-crops/shared";
+import { CropPhoto } from "@/components/my-crops/crop-photo";
 import ReportCare, { CareJourney, HistoricalInsights } from "./report-care";
+import { ReportPhotos } from "./report-photos";
 import {
   Busy,
   date,
@@ -56,12 +64,15 @@ type Detail = {
 export default function CropWorkspace({
   crop,
   plant,
+  children,
 }: {
   crop: MyCrop;
   plant?: MyPlant;
+  children?: ReactNode;
 }) {
   const params = useSearchParams();
   const { api, ready } = useCareApi();
+  const crops = useCropData<MyCrop>("crops", true, "updatedAt", "desc");
   const records = useCropData<PlantRecord>(
     plant ? `crops/${crop.id}/plants/${plant.id}/records` : null,
     true,
@@ -288,6 +299,33 @@ export default function CropWorkspace({
   );
   return (
     <div className="min-w-0 space-y-5" aria-label="Crop reports and care">
+      {crops.data.length > 0 && (
+        <nav
+          aria-label="Switch crop"
+          className="flex gap-3 overflow-x-auto pb-1"
+        >
+          {crops.data
+            .filter((c) => !c.deletingAt)
+            .map((c) => (
+              <Link
+                key={c.id}
+                href={`/my-crops/${c.id}`}
+                aria-current={c.id === crop.id ? "page" : undefined}
+                className={`flex min-w-52 shrink-0 items-center gap-3 rounded-2xl border p-3 transition hover:border-emerald-500 ${c.id === crop.id ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600" : "border-emerald-100 bg-white"}`}
+              >
+                <CropPhoto name={c.name} />
+                <span>
+                  <strong className="block text-emerald-950">{c.name}</strong>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    {c.plantCount} {c.plantCount === 1 ? "plant" : "plants"} ·
+                    Reports & care
+                  </span>
+                </span>
+              </Link>
+            ))}
+        </nav>
+      )}
+      {children}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
           <Label htmlFor="workspace-season">Season / crop cycle</Label>
@@ -432,6 +470,16 @@ export default function CropWorkspace({
           {reportLoading && <Busy>Opening saved report details…</Busy>}
           {report && report.careSeasonId === seasonId && (
             <>
+              <ReportPhotos
+                key={seasonId + report.id}
+                report={report}
+                reports={seasonReports}
+                api={api}
+                latestKnown={
+                  !detail.reports.nextCursor &&
+                  seasonReports[0]?.id === report.id
+                }
+              />
               <HistoricalInsights
                 key={report.id + ":" + revision}
                 reportId={report.id}
@@ -454,59 +502,61 @@ export default function CropWorkspace({
               />
             </>
           )}
-          <section className={panel}>
-            <button
-              type="button"
-              aria-expanded={compareOpen}
-              className="flex w-full items-center justify-between gap-3 text-left"
-              onClick={() => setCompareOpen((v) => !v)}
-            >
-              <span>
-                <span className="block font-semibold text-emerald-950">
-                  Compare reports from this season
+          {plant && (
+            <section className={panel}>
+              <button
+                type="button"
+                aria-expanded={compareOpen}
+                className="flex w-full items-center justify-between gap-3 text-left"
+                onClick={() => setCompareOpen((v) => !v)}
+              >
+                <span>
+                  <span className="block font-semibold text-emerald-950">
+                    More comparison details
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    Same plant / plot, different checks.
+                  </span>
                 </span>
-                <span className="mt-1 block text-xs text-slate-500">
-                  Same plant / plot, different checks.
-                </span>
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 ${compareOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {compareOpen && (
-              <div className="mt-5">
-                {plant ? (
-                  records.loading ? (
-                    <Busy>Loading this plant’s reports…</Busy>
-                  ) : records.error ? (
-                    <ErrorBox>{records.error}</ErrorBox>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 ${compareOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {compareOpen && (
+                <div className="mt-5">
+                  {plant ? (
+                    records.loading ? (
+                      <Busy>Loading this plant’s reports…</Busy>
+                    ) : records.error ? (
+                      <ErrorBox>{records.error}</ErrorBox>
+                    ) : (
+                      <PlantProgressComparison
+                        key={seasonId + plant.id}
+                        records={comparisonRecords}
+                        cropId={crop.id}
+                        plantId={plant.id}
+                      />
+                    )
                   ) : (
-                    <PlantProgressComparison
-                      key={seasonId + plant.id}
-                      records={comparisonRecords}
-                      cropId={crop.id}
-                      plantId={plant.id}
-                    />
-                  )
-                ) : (
-                  <p className="text-sm text-slate-500">
-                    Choose a named plant above to compare checks of the same
-                    plant. Field-wide reports remain available in the report
-                    selector.
-                  </p>
-                )}
-                {detail.reports.nextCursor && (
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => more("reports")}
-                  >
-                    Load more reports for comparison
-                  </Button>
-                )}
-              </div>
-            )}
-          </section>
+                    <p className="text-sm text-slate-500">
+                      Choose a named plant above to compare checks of the same
+                      plant. Field-wide reports remain available in the report
+                      selector.
+                    </p>
+                  )}
+                  {detail.reports.nextCursor && (
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => more("reports")}
+                    >
+                      Load more reports for comparison
+                    </Button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
       {plant && records.data.length > 0 && (
